@@ -1,0 +1,9 @@
+dataPath = /home/mohsen/WMH/WMH_tool/train_and_test/test_images/
+atlasPath = /home/mohsen/WMH/WMH_tool/material/atlas/
+files = [_fl_orig.nii.gz,_t1_orig.nii.gz]
+ventModelPath = /home/mohsen/WMH/WMH_tool/material/ventricles/50.npz
+ventArchPath = /home/mohsen/WMH/WMH_tool/material/ventricles/lp.txt
+networksPath = /home/mohsen/WMH/WMH_tool/train_and_test/networks/
+number = 3
+outFileName = cnn_exploit.nii.gz
+
