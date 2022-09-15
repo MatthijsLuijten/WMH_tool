@@ -1,5 +1,7 @@
+# Byte-compiled / optimized / DLL files
+/WMH_old/code/__pycache__/
+*.py[cod]
+
 /WMH_old/material
 /WMH_old/train_and_test
-
-/WMH_old/exploit/test_images
-/WMH_old/exploit/test_images_copy
+/WMH_old/exploit
