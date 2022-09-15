@@ -1,4 +1,2 @@
-
-f=  open("asghar.txt","w")
-f.write("57")
-f.close()
+import numpy
+print(numpy.__version__)
