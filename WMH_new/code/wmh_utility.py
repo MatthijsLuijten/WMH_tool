@@ -148,7 +148,7 @@ def load_description(path):
 			line = line[:-1]
 		[var, val] = line.replace(' ', '').split("=")
 		
-		print (var + "===="+val)
+		# print (var + "===="+val)
 		for counter in range(len(keywords)):
 			if var==keywords[counter]:
 				vals[counter] = val
@@ -171,9 +171,9 @@ def load_description(path):
 			vals[i] = [x for x in (vals[i])[1:-1].split(",")]
 			
 	if error==False:
-		print ("================================")
+		print ("================================ Description ================================")
 		for i in range(len(keywords)):
-			print (keywords[i] + ":"+ str(vals[i]))
+			print (keywords[i] + " : "+ str(vals[i]))
 			
 	desc = {}
 	for i in range(len(keywords)):

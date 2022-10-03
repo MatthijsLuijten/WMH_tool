@@ -4,17 +4,16 @@ import wmh_mid_detection
 import wmh_normalize
 import vent_segment
 import wmh_segment
-import wmh_train
+# import wmh_train
 import wmh_create_dataset
 import wmh_network
 import sys
 
 if __name__ == '__main__':
-	desc_path = 'C:\Users\Matthijs\Documents\RU\MSc_Thesis\WMH_tool\WMH_old\description.lpd'
-	print('-------------------------------------', desc_path)
+	desc_path = 'C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/description.lpd'
 	desc, error1 = wmh_utility.load_description(desc_path)
-	lpd_path = desc["networksPath"]+desc["number"]+"/"+desc["number"]+".lpd"
-	model_path = desc["networksPath"]+desc["number"]+"/"+desc["number"]+"_best.npz"
+	lpd_path = 'C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/train_and_test/networks/3/3.lpd' #desc["networksPath"]+desc["number"]+"\\"+desc["number"]+".lpd"
+	model_path = 'C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/train_and_test/networks/3/3_best.npz' #desc["networksPath"]+desc["number"]+"\\"+desc["number"]+"_best.npz"
 	lp, arch, error2 = wmh_network.load_learning_process_description(lpd_path)
 	if not (error1 or error2):
 		index = 0
@@ -22,9 +21,10 @@ if __name__ == '__main__':
 		valid_cases = wmh_utility.load_cases(lp["validationCases"])
 		test_cases = wmh_utility.load_cases(lp["testCases"])
 		cases = train_cases + valid_cases + test_cases
+		print(cases)
 		for c in cases:
 			print("now for ", c)
-			wmh_pre.run(desc["dataPath"], desc["atlasPath"], c, desc["files"])
+			wmh_pre.run(desc["dataPath"], desc["atlasPath"], c, desc["files"], lp["label"])
 			wmh_mid_detection.run(desc["dataPath"], c)
 			wmh_normalize.run(desc["dataPath"], c)
 		vent_segment.run_batch(desc["dataPath"], cases, desc["ventModelPath"], desc["ventArchPath"])
