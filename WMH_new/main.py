@@ -10,8 +10,8 @@ if __name__ == '__main__':
     cases = train_cases + valid_cases #+ test_cases
 
     # Preprocess data
-    for c in cases:
-        preprocess(c)
+    # for c in cases:
+    preprocess(cases[0])
 
     # Load model
     input_shape = (256,256,2)
