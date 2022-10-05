@@ -18,15 +18,17 @@ if __name__ == '__main__':
     test_img = np.ndarray((len(test_cases),256,256,2))
     test_lbl = np.ndarray((len(test_cases),256,256,1))
 
-    # Preprocess data
-    for i,c in enumerate(tqdm(train_cases)):
-        t1, fl, lbl = preprocess(c)
-        train_img[i] = np.stack((t1,fl), axis=2)
-        train_lbl[i] = np.reshape(lbl, (256,256,1))
-    for i,c in enumerate(tqdm(test_cases)):
-        t1, fl, lbl = preprocess(c)
-        test_img[i] = np.stack((t1,fl), axis=2)
-        test_lbl[i] = np.reshape(lbl, (256,256,1))
+    # # Preprocess data
+    # print('--> Preprocessing training cases')
+    # for i,c in enumerate(tqdm(train_cases)):
+    #     t1, fl, lbl = preprocess(c)
+    #     train_img[i] = np.stack((t1,fl), axis=2)
+    #     train_lbl[i] = np.reshape(lbl, (256,256,1))
+    # print('--> Preprocessing test cases')    
+    # for i,c in enumerate(tqdm(test_cases)):
+    #     t1, fl, lbl = preprocess(c)
+    #     test_img[i] = np.stack((t1,fl), axis=2)
+    #     test_lbl[i] = np.reshape(lbl, (256,256,1))
 
     # Load model
     input_shape = (256,256,2)
