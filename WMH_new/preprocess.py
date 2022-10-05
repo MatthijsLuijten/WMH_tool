@@ -6,12 +6,14 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 import tensorflow as tf
 
+from plot import *
+
 ### Original image ratios
 ### T1 (176,256,256)
-### FL & LBL (384,512)
+### FL & LBL (384,512,23)
 
 def preprocess(c):
-	print('--> Case', c)
+	# print('--> Case', c)
 	path_patient = os.path.join(parameters.path_data, c).replace("\\","/")
 
 	# Original files
@@ -35,19 +37,11 @@ def preprocess(c):
 	lbl_rescaled = tf.image.resize(lbl_norm, (256,256))
 	
 	# Print image
-	image = t1_rescaled[:,:,172]
-	plt.imshow(image, cmap='gray')
-	plt.title('T1')
-	plt.show()
-	image = fl_rescaled[:,:,13]
-	plt.imshow(image, cmap='gray')
-	plt.title('FL')
-	plt.show()
-	image = lbl_rescaled[:,:,13]
-	plt.imshow(image, cmap='gray')
-	plt.title('Label')
-	plt.show()
-	return
+	# plot_image(t1_rescaled[:,:,172], f'T1 of {c}')
+	# plot_image(fl_rescaled[:,:,13], f'FL of {c}')
+	# plot_image(lbl_rescaled[:,:,13], f'LBL of {c}')
+
+	return t1_rescaled[:,:,172].numpy(), fl_rescaled[:,:,13].numpy(), lbl_rescaled[:,:,13].numpy()
 
 
 def normalize(img):

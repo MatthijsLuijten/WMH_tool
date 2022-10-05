@@ -65,13 +65,3 @@ def decoder_block(input, skip_features, num_filters):
     return x
 
 #################### Building blocks ####################
-
-def test_unet(input_shape):
-    x = tf.random.uniform(input_shape)
-    x = tf.reshape(x, (256,256,2))
-    print('Input shape: ', x.shape)
-    model = build_unet(tf.shape(x))
-    print('MODEL',model)
-    preds = model.predict(x)
-    print('Pred shape: ', tf.shape(preds))
-    # assert preds.shape == x.shape

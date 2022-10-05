@@ -2,6 +2,9 @@
 /WMH_old/code/__pycache__/
 *.py[cod]
 
+# Dataset
+/RUNDMC
+
 /WMH_old/material
 /WMH_old/train_and_test
 /WMH_old/exploit

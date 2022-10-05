@@ -2,9 +2,9 @@ import parameters
 
 def load_data():
 	train_cases = load_cases(parameters.path_trainingcases)
-	valid_cases = load_cases(parameters.path_validationcases)
+	# valid_cases = load_cases(parameters.path_validationcases)
 	test_cases = load_cases(parameters.path_testcases)
-	return train_cases, valid_cases, test_cases
+	return train_cases, test_cases
 
 
 def load_cases(filePath):
