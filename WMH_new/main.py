@@ -14,9 +14,9 @@ import utils
 
 if __name__ == '__main__':
 
-    # Either load and preprocess data or load datasets if they are preprocessed already
-    preprocess = False
-    if (preprocess):
+    # Either load and preprocess data OR load datasets if they are preprocessed already
+    do_preprocess = False
+    if do_preprocess:
         # Load data (case numbers)
         print('--> Loading and preprocessing cases')
         train_cases, test_cases = load_data()
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         test_lbl = np.load(path_test_lbl)
         
     # Make and fit model, OR load trained model
-    train = False
+    train = True
     if train:
         # Make model
         model = build_unet(unet_input_shape)
@@ -66,15 +66,26 @@ if __name__ == '__main__':
         # Plot training and save plot
         plot_training(model_history)
 
-        # Save model
+        # Save model and parameters
         model.save(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
-        print('--> Saved model and training graph to', os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
+        print('--> Saved model, training graph and parameters to', os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
+        with open('WMH_new/parameters.py', 'r') as f:
+            txt = f.read()
+            with open(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, "parameters.py").replace("\\","/"), 'w') as f:
+                f.write(txt)
 
     else:
-        model = keras.models.load_model(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"), custom_objects = {"iou_coef_loss": utils.iou_coef_loss, "coef_loss": utils.iou_coef})
+        model = build_unet(unet_input_shape)
+        model.load_weights(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
+        # model = keras.models.load_model(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"), compile=False)#, custom_objects = {"iou_coef_loss": utils.iou_coef_loss, "coef_loss": utils.iou_coef})
         print('--> Loaded model from', os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
 
 
     # Make prediction
-    pred_mask = model.predict(np.array([train_img[25]]), batch_size=None)
-    plot_prediction(train_img[25][:,:,0], train_img[25][:,:,1], train_lbl[25], pred_mask[0])
+    pred_mask = model.predict(np.array([train_img[25]]), batch_size=None).astype('float64')
+    pred_mask[pred_mask[...,0] > 0.5] = 1      
+    pred_mask[pred_mask[...,0] <= 0.5] = 0
+    metrics = {}
+    metrics['IoU'] = round(tf.keras.backend.get_value(utils.iou_coef(train_lbl[25], pred_mask[0])), 3)
+    metrics['Dice'] = round(tf.keras.backend.get_value(utils.dice_coef(train_lbl[25], pred_mask[0])), 3)
+    plot_prediction(train_img[25][:,:,0], train_img[25][:,:,1], train_lbl[25], pred_mask[0], metrics)

@@ -27,7 +27,7 @@ def build_unet(input_shape):
     outputs = Conv2D(1, 1, activation="sigmoid")(d4)  #Binary (can be multiclass)
 
     model = Model(inputs, outputs, name="U-Net")
-    model.compile(optimizer=Adam(parameters.unet_lr), loss = iou_coef_loss, metrics = [iou_coef])
+    model.compile(optimizer=Adam(parameters.unet_lr), loss = parameters.training_loss[0], metrics = [iou_coef, dice_coef])
     # model.summary(150)
 
     return model

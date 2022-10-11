@@ -9,6 +9,7 @@
 # Saved npy datasets (train, test)
 /WMH_new/datasets
 
+# Model checkpoints
 /WMH_new/checkpoints
 
 /WMH_old/material
