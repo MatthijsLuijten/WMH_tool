@@ -1,9 +1,15 @@
 # Byte-compiled / optimized / DLL files
 /WMH_old/code/__pycache__/
+*__pycache__/
 *.py[cod]
 
 # Dataset
 /RUNDMC
+
+# Saved npy datasets (train, test)
+/WMH_new/datasets
+
+/WMH_new/checkpoints
 
 /WMH_old/material
 /WMH_old/train_and_test

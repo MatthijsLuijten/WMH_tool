@@ -9,12 +9,15 @@ import tensorflow as tf
 from plot import *
 
 ### Original image ratios
-### T1 (176,256,256)
-### FL & LBL (384,512,23)
+### T1 (176,256,#slices)
+### FL & LBL (384,512,46)
 
 def preprocess(c):
 	# print('--> Case', c)
-	path_patient = os.path.join(parameters.path_data, c).replace("\\","/")
+	if c.startswith('2015_RUNDMC'):
+		path_patient = os.path.join(parameters.path_data_2015, c).replace("\\","/")
+	else:
+		path_patient = os.path.join(parameters.path_data_2011, c).replace("\\","/")
 
 	# Original files
 	T1OrigPath = os.path.join(path_patient, parameters.files[1]).replace("\\","/")
@@ -22,7 +25,9 @@ def preprocess(c):
 	labelOrigPath = os.path.join(path_patient, parameters.label).replace("\\","/")
 	
 	# Nifti --> np array
-	t1_img = np.transpose(nib.load(T1OrigPath).get_fdata(), axes=[2,0,1])
+	t1_img = nib.load(T1OrigPath).get_fdata()
+	depth = len(t1_img[0][0])
+	# t1_img = np.transpose(nib.load(T1OrigPath).get_fdata(), axes=[2,0,1])
 	fl_img = nib.load(FLOrigPath).get_fdata()
 	lbl_img = nib.load(labelOrigPath).get_fdata()
 	
@@ -37,12 +42,8 @@ def preprocess(c):
 	lbl_rescaled = tf.image.resize(lbl_norm, (256,256))
 	
 	# Print image
-	# plot_image(t1_rescaled[:,:,172], f'T1 of {c}')
-	# plot_image(fl_rescaled[:,:,13], f'FL of {c}')
-	# plot_image(lbl_rescaled[:,:,13], f'LBL of {c}')
+	# plot_image(t1_rescaled[:,:,120], f'T1 of {c}')
+	# plot_image(fl_rescaled[:,:,22], f'FL of {c}')
+	# plot_image(lbl_rescaled[:,:,22], f'LBL of {c}')
 
-	return t1_rescaled[:,:,172].numpy(), fl_rescaled[:,:,13].numpy(), lbl_rescaled[:,:,13].numpy()
-
-
-def normalize(img):
-	return img/np.max(img)
+	return t1_rescaled[:,:,int(0.6*depth)].numpy(), fl_rescaled[:,:,13].numpy(), lbl_rescaled[:,:,13].numpy()

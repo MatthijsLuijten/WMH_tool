@@ -1,9 +1,13 @@
+import numpy as np
 import parameters
+from sklearn.model_selection import train_test_split
 
 def load_data():
-	train_cases = load_cases(parameters.path_trainingcases)
-	# valid_cases = load_cases(parameters.path_validationcases)
-	test_cases = load_cases(parameters.path_testcases)
+	cases_2011 = load_cases(parameters.path_2011_cases)
+	cases_2015 = load_cases(parameters.path_2015_cases)
+	cases = np.concatenate((cases_2011, cases_2015))
+	np.random.shuffle(cases)
+	train_cases, test_cases = cases[80:], cases[:80]
 	return train_cases, test_cases
 
 

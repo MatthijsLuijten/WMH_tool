@@ -5,6 +5,7 @@ from keras.optimizers import Adam
 from keras.layers import Activation, MaxPool2D, Concatenate
 
 import parameters
+from utils import *
 
 #################### The U-Net Model ####################
 #Build Unet using the blocks
@@ -26,7 +27,7 @@ def build_unet(input_shape):
     outputs = Conv2D(1, 1, activation="sigmoid")(d4)  #Binary (can be multiclass)
 
     model = Model(inputs, outputs, name="U-Net")
-    model.compile(optimizer=Adam(parameters.unet_lr), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=Adam(parameters.unet_lr), loss = iou_coef_loss, metrics = [iou_coef])
     # model.summary(150)
 
     return model
