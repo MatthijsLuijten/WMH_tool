@@ -1,17 +1,17 @@
 import utils
 
 ########## U-Net parameters ##########
-unet_version = 'Dice'                                       # !!!!! Change for new run
+unet_version = 'IoU'                                            # !!!!! Change for new run      'IoU' ||| 'Dice' 
 unet_input_shape = (256,256,2)
 unet_dropout = 0.1
-unet_lr = 1e-3
+unet_lr = 2e-3
 
 ########## Training parameters ##########
 training_batch_size = 16
-training_epochs = 75
+training_epochs = 100
 training_validation_split = 0.2
 # CHANGE BOTH
-training_loss = utils.dice_coef_loss, 'Dice Coeff.'              # !!!!! Change for new run
+training_loss = utils.iou_coef_loss, 'IoU Coeff.'               # !!!!! Change for new run     utils.iou_coef_loss, 'IoU Coeff.' ||| utils.dice_coef_loss, 'Dice Coeff.'
 
 ########## Datasets (train, test) ##########
 path_train_img = 'WMH_new/datasets/train_img.npy'

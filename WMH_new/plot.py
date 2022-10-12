@@ -1,15 +1,19 @@
 import matplotlib.pyplot as plt
 import os
 import parameters
+import utils
 
 def plot_training(model_history):
     # Plot the training and validation accuracy and loss at each epoch
     # print(model_history.history)
-    metric = model_history.history['iou_coef']
-    val_metric = model_history.history['val_iou_coef']
-
-    plt.plot(model_history.epoch, metric, label='Training IoU Coeff.')
-    plt.plot(model_history.epoch, val_metric, label='Validation IoU Coeff.')
+    if parameters.training_loss[0] == utils.dice_coef_loss:
+        metric = model_history.history['dice_coef']
+        val_metric = model_history.history['val_dice_coef']
+    elif parameters.training_loss[0] == utils.iou_coef_loss:
+        metric = model_history.history['iou_coef']
+        val_metric = model_history.history['val_iou_coef']
+    plt.plot(model_history.epoch, metric, label=f'Training {parameters.training_loss[1]}')
+    plt.plot(model_history.epoch, val_metric, label=f'Validation {parameters.training_loss[1]}')
     plt.title(f'Training and validation {str(parameters.training_loss[1])}')
     plt.xlabel('Epoch')
     plt.ylabel(parameters.training_loss[1])
@@ -32,7 +36,7 @@ def plot_image(image, title):
 
 def plot_prediction(t1_orig, fl_orig, label, prediction, metrics):
     # Plot t1, fl, lbl and prediction
-    fig, ax = plt.subplots(1,4)
+    fig, ax = plt.subplots(1,4, figsize=(15, 5))
     fig.suptitle(metrics)
     ax[0].imshow(t1_orig, cmap='gray')
     ax[0].set_title('Original T1')

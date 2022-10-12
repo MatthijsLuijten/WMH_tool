@@ -54,7 +54,7 @@ if __name__ == '__main__':
         test_lbl = np.load(path_test_lbl)
         
     # Make and fit model, OR load trained model
-    train = True
+    train = False
     if train:
         # Make model
         model = build_unet(unet_input_shape)
@@ -82,10 +82,11 @@ if __name__ == '__main__':
 
 
     # Make prediction
-    pred_mask = model.predict(np.array([train_img[25]]), batch_size=None).astype('float64')
+    image_nr = 17
+    pred_mask = model.predict(np.array([train_img[image_nr]]), batch_size=None).astype('float64')
     pred_mask[pred_mask[...,0] > 0.5] = 1      
     pred_mask[pred_mask[...,0] <= 0.5] = 0
     metrics = {}
-    metrics['IoU'] = round(tf.keras.backend.get_value(utils.iou_coef(train_lbl[25], pred_mask[0])), 3)
-    metrics['Dice'] = round(tf.keras.backend.get_value(utils.dice_coef(train_lbl[25], pred_mask[0])), 3)
-    plot_prediction(train_img[25][:,:,0], train_img[25][:,:,1], train_lbl[25], pred_mask[0], metrics)
+    metrics['IoU'] = round(tf.keras.backend.get_value(utils.iou_coef(train_lbl[image_nr], pred_mask[0])), 3)
+    metrics['Dice'] = round(tf.keras.backend.get_value(utils.dice_coef(train_lbl[image_nr], pred_mask[0])), 3)
+    plot_prediction(train_img[image_nr][:,:,0], train_img[image_nr][:,:,1], train_lbl[image_nr], pred_mask[0], metrics)
