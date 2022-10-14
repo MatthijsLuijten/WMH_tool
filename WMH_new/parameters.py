@@ -23,7 +23,7 @@ path_test_lbl = 'WMH_new/datasets/test_lbl.npy'
 path_data_2006 = 'RUNDMC/2006'
 path_data_2011 = 'RUNDMC/2011'
 path_data_2015 = 'RUNDMC/2015'
-atlasPath = 'WMH_old/material/atlas'
+atlasPath = 'WMH_new/material'
 
 files = ['_fl_orig.nii.gz','_t1_orig.nii.gz']
 label = 'wmh_semiautomatic.nii.gz'

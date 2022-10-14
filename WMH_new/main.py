@@ -15,9 +15,9 @@ import utils
 if __name__ == '__main__':
 
     # Either load and preprocess data OR load datasets if they are preprocessed already
-    do_preprocess = False
+    do_preprocess = True
     if do_preprocess:
-        # Load data (case numbers)
+        # Load data (case numbers) and shuffle
         print('--> Loading and preprocessing cases')
         train_cases, test_cases = load_data()
 
@@ -40,10 +40,10 @@ if __name__ == '__main__':
             test_lbl[i] = np.reshape(lbl, (256,256,1))
 
         # Save datasets
-        np.save(path_train_img, train_img)
-        np.save(path_train_lbl, train_lbl)
-        np.save(path_test_img, test_img)
-        np.save(path_test_lbl, test_lbl)
+        # np.save(path_train_img, train_img)
+        # np.save(path_train_lbl, train_lbl)
+        # np.save(path_test_img, test_img)
+        # np.save(path_test_lbl, test_lbl)
 
     else:
         # Load datasets
