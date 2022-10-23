@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 import parameters
 import utils
 
@@ -29,7 +30,7 @@ def plot_training(model_history):
 
 def plot_image(image, title):
     # Plot single slice of MRI data (ndarray)
-    plt.imshow(image, cmap='gray')
+    plt.imshow(np.rot90(image), cmap='gray', origin='lower')
     plt.title(title)
     plt.show()
 
@@ -38,19 +39,19 @@ def plot_prediction(t1_orig, fl_orig, label, prediction, metrics):
     # Plot t1, fl, lbl and prediction
     fig, ax = plt.subplots(1,4, figsize=(15, 5))
     fig.suptitle(metrics)
-    ax[0].imshow(t1_orig, cmap='gray')
+    ax[0].imshow(np.rot90(t1_orig), cmap='gray')
     ax[0].set_title('Original T1')
     ax[0].axis('off')
 
-    ax[1].imshow(fl_orig, cmap='gray')
+    ax[1].imshow(np.rot90(fl_orig), cmap='gray')
     ax[1].set_title('Original FL')
     ax[1].axis('off')
 
-    ax[2].imshow(label, cmap='gray')
+    ax[2].imshow(np.rot90(label), cmap='gray')
     ax[2].set_title('WMH label')
     ax[2].axis('off')
 
-    ax[3].imshow(prediction, cmap='gray')
+    ax[3].imshow(np.rot90(prediction), cmap='gray')
     ax[3].set_title('Prediction')
     ax[3].axis('off')
 

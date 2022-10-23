@@ -2,7 +2,7 @@ import utils
 
 ########## U-Net parameters ##########
 unet_version = 'IoU'                                            # !!!!! Change for new run      'IoU' ||| 'Dice' 
-unet_input_shape = (256,256,2)
+unet_input_shape = (200,200,2)
 unet_dropout = 0.1
 unet_lr = 2e-3
 
