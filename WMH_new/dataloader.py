@@ -5,9 +5,8 @@ from sklearn.model_selection import train_test_split
 def load_data():
 	cases_2011 = load_cases(parameters.path_2011_cases)
 	cases_2015 = load_cases(parameters.path_2015_cases)
-	cases = np.concatenate((cases_2011, cases_2015))
-	np.random.shuffle(cases)
-	train_cases, test_cases = cases[80:], cases[:80]
+	cases = cases_2011 + cases_2015
+	train_cases, test_cases = train_test_split(cases, test_size=0.2, shuffle=True)
 	return train_cases, test_cases
 
 

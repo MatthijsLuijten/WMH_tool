@@ -4,7 +4,7 @@ import numpy as np
 import parameters
 import utils
 
-def plot_training(model_history):
+def plot_training(model_history, number):
     # Plot the training and validation accuracy and loss at each epoch
     # print(model_history.history)
     if parameters.training_loss[0] == utils.dice_coef_loss:
@@ -13,29 +13,53 @@ def plot_training(model_history):
     elif parameters.training_loss[0] == utils.iou_coef_loss:
         metric = model_history.history['iou_coef']
         val_metric = model_history.history['val_iou_coef']
+    plt.figure()
     plt.plot(model_history.epoch, metric, label=f'Training {parameters.training_loss[1]}')
     plt.plot(model_history.epoch, val_metric, label=f'Validation {parameters.training_loss[1]}')
-    plt.title(f'Training and validation {str(parameters.training_loss[1])}')
+    plt.title(f'Training and validation {str(parameters.training_loss[1])} #{number}')
     plt.xlabel('Epoch')
     plt.ylabel(parameters.training_loss[1])
     plt.legend()
 
     # Save plot
-    if not os.path.exists(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/")):
-            os.makedirs(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
-    plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'training_graph').replace("\\","/"))
+    if not os.path.exists(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(number)).replace("\\","/")):
+            os.makedirs(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(number)).replace("\\","/"))
+    plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(number), 'training_graph').replace("\\","/"))
 
     # plt.show()
 
 
-def plot_image(image, title):
+def plot_image(image, title='Title'):
     # Plot single slice of MRI data (ndarray)
+    plt.figure()
     plt.imshow(np.rot90(image), cmap='gray', origin='lower')
     plt.title(title)
     plt.show()
 
 
-def plot_prediction(t1_orig, fl_orig, label, prediction, metrics):
+def plot_orig_and_lbl(t1, fl, label):
+    # Plot t1, fl, lbl and prediction
+    fig, ax = plt.subplots(1,2, figsize=(10, 5))
+    ax[0].imshow(np.rot90(t1), cmap='gray')
+    ax[0].set_title('Original T1')
+    ax[0].axis('off')
+
+    ax[1].imshow(np.rot90(fl), cmap='gray')
+    ax[1].set_title('Original FL')
+    ax[1].axis('off')
+
+    ax[0].imshow(np.rot90(label), cmap='hot', alpha=0.5)
+    ax[0].set_title('WMH label')
+    ax[0].axis('off')
+
+    ax[1].imshow(np.rot90(label), cmap='hot', alpha=0.5)
+    ax[1].set_title('WMH label')
+    ax[1].axis('off')
+
+    plt.show()
+
+
+def plot_prediction(t1_orig, fl_orig, label, prediction, metrics=''):
     # Plot t1, fl, lbl and prediction
     fig, ax = plt.subplots(1,4, figsize=(15, 5))
     fig.suptitle(metrics)
@@ -60,4 +84,4 @@ def plot_prediction(t1_orig, fl_orig, label, prediction, metrics):
             os.makedirs(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"))
     plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'prediction').replace("\\","/"))
 
-    # plt.show()
+    plt.show()

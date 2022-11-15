@@ -14,8 +14,7 @@ from plot import *
 ### FL & LBL (384,512,46)
 
 def preprocess(c):
-	startTime = time.time()
-	print('--> Case', c)
+	# print('--> Case', c)
 	if c.startswith('2015_RUNDMC'):
 		path_patient = os.path.join(parameters.path_data_2015, c).replace("\\","/")
 	else:
@@ -26,7 +25,8 @@ def preprocess(c):
 	fl_path = os.path.join(path_patient, parameters.files[0]).replace("\\","/")
 	lbl_path = os.path.join(path_patient, parameters.label).replace("\\","/")
 
-	do_fsl(path_patient, t1_path, fl_path, lbl_path)
+	if not os.path.exists(os.path.join(path_patient, 'warped_t1.nii.gz').replace("\\","/")):
+		do_fsl(path_patient, t1_path, fl_path, lbl_path)
 
 	# Path --> nifti image
 	t1 = nib.load(os.path.join(path_patient, 'warped_t1.nii.gz').replace("\\","/"))
@@ -44,6 +44,10 @@ def preprocess(c):
 	t1_norm = normalize_image(t1_img)
 	fl_norm = normalize_image(fl_img)
 	lbl_norm = normalize_image(lbl_img)
+  
+	# Threshold label to 0 or 1
+	lbl_norm[lbl_norm > 0.1] = 1
+	lbl_norm[lbl_norm <= 0.1] = 0
 
 	# Rescale image
 	t1_rescaled = tf.image.resize(t1_norm, (200,200))
@@ -51,32 +55,33 @@ def preprocess(c):
 	lbl_rescaled = tf.image.resize(lbl_norm, (200,200))
 	
 	# Print image
+	# for z in range(60,140,5):
+	# 	plot_orig_and_lbl(t1_rescaled[:,:,z], fl_rescaled[:,:,z], lbl_rescaled[:,:,z])
+	# plot_orig_and_lbl(t1_rescaled[:,:,49], fl_rescaled[:,:,49], lbl_rescaled[:,:,49])
 	# plot_image(t1_rescaled[:,:,92], f'T1 of {c}')
 	# plot_image(fl_rescaled[:,:,92], f'FL of {c}')
 	# plot_image(lbl_rescaled[:,:,92], f'LBL of {c}')
-
-	endTime = time.time() - startTime
-	print("      --- took", round(endTime/60.0,2), "mintues")
 
 	return t1_rescaled.numpy(), fl_rescaled.numpy(), lbl_rescaled.numpy()
 
 
 def do_fsl(path_patient, t1_path, fl_path, lbl_path):
+	startTime = time.time()
 	wsl = 'wsl ~ -e sh -c'
 	fsl = '/usr/local/fsl/bin/'
-	mnt = '/mnt/c/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/'
+	# mnt = '/mnt/c/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/'
+	mnt = '/mnt/c/Research/Matthijs/WMH_tool/'
 	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
 	mni_bet = 'WMH_new/material/MNI152_T1_1mm_brain.nii.gz'
 	mni_t1 = 'WMH_new/material/MNI152_T1_1mm.nii.gz'
 	
 	# Files to be made
-	bet_t1 = os.path.join(path_patient, 'bet_t1.nii.gz').replace("\\","/")
-	bet_fl = os.path.join(path_patient, 'bet_fl.nii.gz').replace("\\","/")
-
 	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
 	t1_2_flair_mat = os.path.join(path_patient, 't1_2_flair_mat.mat').replace("\\","/")
 
-	bet_t1_2_flair = os.path.join(path_patient, 'bet_t1_2_flair.nii.gz').replace("\\","/")
+	t1_2_flair_brain = os.path.join(path_patient, 't1_2_flair_brain.nii.gz').replace("\\","/")
+	t1_2_flair_brain_mask = os.path.join(path_patient, 't1_2_flair_brain_mask.nii.gz').replace("\\","/")
+	fl_brain = os.path.join(path_patient, 'fl_brain.nii.gz').replace("\\","/")
 	t1_2_std = os.path.join(path_patient, 't1_2_std.nii.gz').replace("\\","/")
 	t1_2_std_mat = os.path.join(path_patient, 't1_2_std_mat.mat').replace("\\","/")
 	transformation = os.path.join(path_patient, 'transformation.nii.gz').replace("\\","/")
@@ -87,26 +92,29 @@ def do_fsl(path_patient, t1_path, fl_path, lbl_path):
 
 	commands = list()
 
-	# Skull removals
-	# commands.append([f'{start}bet {mnt}{t1_path} {mnt}{bet_t1}"', 'T1 skull removal'])
-	# commands.append([f'{start}bet {mnt}{fl_path} {mnt}{bet_fl}"', 'FL skull removal'])
-
 	# Map T1 to FLAIR
-	commands.append([f'{start}flirt -in {mnt}{t1_path} -ref {mnt}{fl_path} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost mutualinfo -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 6  -interp trilinear"', 'Original T1 to FLAIR space (FLIRT)'])
+	commands.append([f'{start}flirt -in {mnt}{t1_path} -ref {mnt}{fl_path} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost mutualinfo -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -dof 6  -interp trilinear"', '1/8 Original T1 to FLAIR space (FLIRT)'])
 	
+	# BET T1_2_FLAIR
+	commands.append([f'{start}bet {mnt}{t1_2_flair} {mnt}{t1_2_flair_brain} -S -f 0.5 -g 0 -m"', '2/8 Bet t1_2_flair (BET)'])
+	# BET FLAIR (use mask of above function)
+	commands.append([f'{start}fslmaths {mnt}{fl_path} -mul {mnt}{t1_2_flair_brain_mask} {mnt}{fl_brain}"', '3/8 Bet flair (fslmath)'])
+
 	# Map t1_2_flair to MNI (4 steps)
-	commands.append([f'{start}bet {mnt}{t1_2_flair} {mnt}{bet_t1_2_flair}"', '-1/4- Map t1_2_flair to MNI (BET)'])
-	commands.append([f'{start}flirt -in {mnt}{bet_t1_2_flair} -ref {mnt}{mni_bet} -out {mnt}{t1_2_std} -omat {mnt}{t1_2_std_mat} -cost mutualinfo"', '-2/4- Map t1_2_flair to MNI (FLIRT)'])
-	commands.append([f'{start}fnirt --in={mnt}{t1_2_flair} --aff={mnt}{t1_2_std_mat} --cout={mnt}{transformation} --ref={mnt}{mni_t1}"', '-3/4- Map t1_2_flair to MNI (FNIRT)'])
-	commands.append([f'{start}applywarp --ref={mnt}{mni_t1} --in={mnt}{t1_2_flair} --warp={mnt}{transformation} --out={mnt}{warped_t1}"', '-4/4- Map t1_2_flair to MNI (APPLYWARP)'])
+	commands.append([f'{start}flirt -in {mnt}{t1_2_flair_brain} -ref {mnt}{mni_bet} -out {mnt}{t1_2_std} -omat {mnt}{t1_2_std_mat} -cost corratio"', '4/8 Map t1_2_flair_brain to MNI (FLIRT)'])
+	commands.append([f'{start}fnirt --in={mnt}{t1_2_flair} --aff={mnt}{t1_2_std_mat} --cout={mnt}{transformation} --ref={mnt}{mni_bet}"', '5/8 Map t1_2_flair to MNI (FNIRT)'])
+	commands.append([f'{start}applywarp --ref={mnt}{mni_bet} --in={mnt}{t1_2_flair_brain} --warp={mnt}{transformation} --out={mnt}{warped_t1}"', '6/8 Map t1_2_flair_brain to MNI (APPLYWARP)'])
 	
 	# Map FL and label to MNI
-	commands.append([f'{start}applywarp --ref={mnt}{mni_t1} --in={mnt}{fl_path} --warp={mnt}{transformation} --out={mnt}{warped_fl}"', 'Map FL to MNI (APPLYWARP)'])
-	commands.append([f'{start}applywarp --ref={mnt}{mni_t1} --in={mnt}{lbl_path} --warp={mnt}{transformation} --out={mnt}{warped_wmh}"', 'Map label to MNI (APPLYWARP)'])
+	commands.append([f'{start}applywarp --ref={mnt}{mni_bet} --in={mnt}{fl_brain} --warp={mnt}{transformation} --out={mnt}{warped_fl}"', '7/8 Map FL to MNI (APPLYWARP)'])
+	commands.append([f'{start}applywarp --ref={mnt}{mni_bet} --in={mnt}{lbl_path} --warp={mnt}{transformation} --out={mnt}{warped_wmh}"', '8/8 Map label to MNI (APPLYWARP)'])
 
 	for command,description in commands:
 		print(f'   --- {description} ---')
 		os.system(command)
+
+	endTime = time.time() - startTime
+	print("      --- took", round(endTime/60.0,2), "mintues")
 
 	
 def normalize_image(image):
