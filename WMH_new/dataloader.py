@@ -1,11 +1,8 @@
-import numpy as np
 import parameters
 from sklearn.model_selection import train_test_split
 
 def load_data():
-	cases_2011 = load_cases(parameters.path_2011_cases)
-	cases_2015 = load_cases(parameters.path_2015_cases)
-	cases = cases_2011 + cases_2015
+	cases = load_cases(parameters.path_good_cases)
 	train_cases, test_cases = train_test_split(cases, test_size=0.2, shuffle=True)
 	return train_cases, test_cases
 
@@ -19,3 +16,7 @@ def load_cases(filePath):
 			result.append(line[:-1])
 		i = i+1
 	return result
+
+def load_pm_data():
+	cases = load_cases(parameters.path_pm_cases)
+	return cases

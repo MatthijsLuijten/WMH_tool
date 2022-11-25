@@ -1,18 +1,22 @@
+# Stop displaying warnings
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+import absl.logging
+absl.logging.set_verbosity(absl.logging.ERROR)
+
 import numpy as np
 from tqdm import tqdm
-import keras
+from sklearn.utils import shuffle
+from keras.callbacks import ModelCheckpoint
 from keras.preprocessing.image import ImageDataGenerator
 
-from dataloader import load_data
-from preprocess import preprocess
+import utils
+from plot import *
 from model import *
 from parameters import *
-from plot import *
-import utils
-
+from dataloader import load_data
+from preprocess import preprocess
 
 if __name__ == '__main__':
 
@@ -22,33 +26,29 @@ if __name__ == '__main__':
         # Load data (case numbers) and shuffle
         print('--> Loading cases')
         train_cases, test_cases = load_data()
+        # cases = load_data()
 
         # Make train and test datasets
-        train_img = []#np.ndarray((len(train_cases)*111,200,200,2))
-        train_lbl = []#np.ndarray((len(train_cases)*111,200,200,1))
-        test_img = []#np.ndarray((len(test_cases)*111,200,200,2))
-        test_lbl = []#np.ndarray((len(test_cases)*111,200,200,1))
+        train_img, train_lbl, test_img, test_lbl = [], [], [], []
 
         # Preprocess data and fill datasets
         print('--> Preprocessing training cases')
         for i,c in enumerate(tqdm(train_cases)):
             t1, fl, lbl = preprocess(c)
+            # determine_training(fl[:,:,77], lbl[:,:,77], fl[:,:,82], lbl[:,:,82], fl[:,:,97], lbl[:,:,97], fl[:,:,127], lbl[:,:,127], c)
             for slice in range(len(t1[0][0])):
                 if slice >= 39 and slice <= 149:
-                    # train_img[slice + 111*i] = np.dstack((t1[:,:,slice],fl[:,:,slice]))
-                    # train_lbl[slice + 111*i] = np.reshape(lbl[:,:,slice], (200,200,1))
                     train_img.append(np.dstack((t1[:,:,slice],fl[:,:,slice])))
                     train_lbl.append(np.reshape(lbl[:,:,slice], (200,200,1)))
+                    
         print('--> Preprocessing test cases')
         for i,c in enumerate(tqdm(test_cases)):
             t1, fl, lbl = preprocess(c)
             for slice in range(len(t1[0][0])):
                 if slice > 39 and slice < 149:
-                    # test_img[slice + 111*i] = np.stack((t1[:,:,slice],fl[:,:,slice]), axis=2)
-                    # test_lbl[slice + 111*i] = np.reshape(lbl[:,:,slice], (200,200,1))
                     test_img.append(np.dstack((t1[:,:,slice],fl[:,:,slice])))
                     test_lbl.append(np.reshape(lbl[:,:,slice], (200,200,1)))
-
+                    
         # Array to np.array
         train_img = np.array(train_img) 
         train_lbl = np.array(train_lbl) 
@@ -61,25 +61,32 @@ if __name__ == '__main__':
         np.save(path_train_lbl, train_lbl)
         np.save(path_test_img, test_img)
         np.save(path_test_lbl, test_lbl)
+    
 
-    else:
-        # Load datasets
-        print('--> Loading datasets')
-        train_img = np.load(path_train_img)
-        train_lbl = np.load(path_train_lbl)
+    # Make and fit model, OR load trained model
+    train = False
+    
+    if not train:
+        # Load test datasets
+        print(f'--> Loading test datasets')
+        # test_img, test_lbl = shuffle(np.load(path_test_img), np.load(path_test_lbl))
         test_img = np.load(path_test_img)
         test_lbl = np.load(path_test_lbl)
         
-    # Make and fit model, OR load trained model
-    train = False
-
-    # Make pred array for ensemble prediction
-    model = build_unet(unet_input_shape)
-    prediction = model.predict(np.array([train_img[0]]), batch_size=None)[0]
-    prediction = np.ndarray(np.shape(prediction))
+        # Make pred arrays for ensemble prediction
+        model = build_unet(unet_input_shape)
+        temp_pred = model.predict(np.array([test_img[0]]), batch_size=None)[0]
+        temp_pred = np.ndarray(np.shape(temp_pred))
+        preds = []
+        for i in range(np.shape(test_img)[0]):
+            preds.append(temp_pred)
     
     for ensemble in range(training_ensemble):
         if train:
+            # Load train datasets
+            print(f'--> Loading and shuffling datasets for training model {ensemble}')
+            train_img, train_lbl = shuffle(np.load(path_train_img), np.load(path_train_lbl))
+            
             # Prepare training data (generator)
             generator = ImageDataGenerator(validation_split=0.2)
             train_generator = generator.flow(train_img, train_lbl, batch_size=training_batch_size, subset='training', ignore_class_split=True)
@@ -88,16 +95,19 @@ if __name__ == '__main__':
             # Make model
             model = build_unet(unet_input_shape)
 
+            # Create callback
+            checkpoint_filepath = os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/")
+            model_checkpoint = ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=False, monitor='val_dice_coef', mode='max', save_best_only=True, verbose=1)
+
             # Train U-net
-            print(f'--> Training model {ensemble+1}')
-            # model_history = model.fit(train_img, train_lbl, epochs=training_epochs, validation_split=training_validation_split)
-            model_history = model.fit(train_generator, validation_data=train_generator, epochs=training_epochs)
+            print(f'--> Training model {ensemble}')
+            model_history = model.fit(train_generator, validation_data=train_generator, epochs=training_epochs, callbacks=[model_checkpoint])
             
             # Plot training and save plot
             plot_training(model_history, ensemble)
 
             # Save model and parameters
-            model.save(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
+            # model.save(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
             print('--> Saved model, training graph and parameters to', os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
             with open('WMH_new/parameters.py', 'r') as f:
                 txt = f.read()
@@ -107,20 +117,54 @@ if __name__ == '__main__':
         else:
             model = build_unet(unet_input_shape)
             model.load_weights(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/")).expect_partial()
-            # model = keras.models.load_model(os.path.join(parameters.path_model_checkpoint, parameters.unet_version).replace("\\","/"), compile=False)#, custom_objects = {"iou_coef_loss": utils.iou_coef_loss, "coef_loss": utils.iou_coef})
             print(f'--> Loaded model {ensemble+1} from', os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
 
 
         # Make prediction
-        # for i in range(100,460,10):
-        image_nr = 280
-        pred_temp = model.predict(np.array([train_img[image_nr]]), batch_size=None)[0]
-        prediction = prediction + pred_temp
+        if not train:
+            # For 1 prediction
+            # image_nr = 150
+            # prediction = model.predict(np.array([test_img[image_nr]]), batch_size=None)[0]
+            # preds[0] = preds[0] + prediction
+            # plot_prediction(test_img[image_nr][:,:,0], test_img[image_nr][:,:,1], test_lbl[image_nr], prediction)
+
+            # For full test set
+            print('   --> Make predictions')
+            predictions = model.predict(test_img, batch_size=16)
+            for i, p in enumerate(preds):
+                preds[i] = p + predictions[i]
     
-    prediction = prediction / training_ensemble
-    prediction[prediction[...,0] > 0.35] = 1
-    prediction[prediction[...,0] <= 0.35] = 0
+    # Average and threshold prediction
+    preds = np.divide(preds, training_ensemble)
+    preds = np.where(preds > 0.35, 1., 0.)
+    # plot_prediction(test_img[image_nr][:,:,0], test_img[image_nr][:,:,1], test_lbl[image_nr], preds[0])
+    
     metrics = {}
-    metrics['IoU'] = round(utils.iou_coef(train_lbl[image_nr].astype('float64'), prediction).numpy(), 3)
-    metrics['Dice'] = round(utils.dice_coef(train_lbl[image_nr].astype('float64'), prediction).numpy(), 3)
-    plot_prediction(train_img[image_nr][:,:,0], train_img[image_nr][:,:,1], train_lbl[image_nr], prediction, metrics)
+    count = 0
+    for i, p in enumerate(tqdm(preds)):
+        # if np.sum(p) == 0 and np.sum(test_lbl[i]) == 0:
+        if np.sum(test_lbl[i]) == 0:
+            continue
+        pred_nii = sitk.GetImageFromArray(p)
+        label_nii = sitk.GetImageFromArray(test_lbl[i].astype('float64'))
+        testImage, resultImage = getImages(label_nii, pred_nii)
+        if not metrics:
+            metrics['DSC'] = round(utils.getDSC(label_nii, pred_nii), 3)
+            # metrics['HD'] = round(utils.getHausdorff(testImage, resultImage), 3)
+            # metrics['AVD'] = round(utils.getAVD(testImage, resultImage), 3)
+            metrics['AVD'] = round(utils.getAVD2(testImage, resultImage), 3)
+            recall, f1 = utils.getLesionDetection(testImage, resultImage)
+            metrics['Recall'] = round(recall, 3)
+            metrics['F1'] = round(f1, 3)
+        else:
+            metrics['DSC'] = metrics['DSC'] + round(utils.getDSC(label_nii, pred_nii), 3)
+            # metrics['HD'] = metrics['HD'] + round(utils.getHausdorff(testImage, resultImage), 3)
+            # metrics['AVD'] = metrics['AVD'] + round(utils.getAVD(testImage, resultImage), 3)
+            metrics['AVD'] = metrics['AVD'] + round(utils.getAVD2(testImage, resultImage), 3)
+            recall, f1 = utils.getLesionDetection(testImage, resultImage)
+            metrics['Recall'] = metrics['Recall'] + round(recall, 3)
+            metrics['F1'] = metrics['F1'] + round(f1, 3)
+        count = count + 1
+
+    metrics = {k: v / count for k, v in metrics.items()}
+    print(metrics)

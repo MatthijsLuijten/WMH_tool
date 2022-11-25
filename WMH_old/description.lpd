@@ -1,9 +1,0 @@
-dataPath = C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/train_and_test/test_images
-atlasPath = C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/material/atlas
-files = [_fl_orig.nii.gz,_t1_orig.nii.gz]
-ventModelPath = C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/material/ventricles/50.npz
-ventArchPath = C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/material/ventricles/lp.txt
-networksPath = C:/Users/Matthijs/Documents/RU/MSc_Thesis/WMH_tool/WMH_old/train_and_test/networks
-number = 3
-outFileName = cnn_exploit.nii.gz
-

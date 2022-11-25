@@ -1,2 +1,0 @@
-import pygpu
-pygpu.test()

@@ -9,9 +9,7 @@ import time
 
 from plot import *
 
-### Original image ratios
-### T1 (176,256,#slices)
-### FL & LBL (384,512,46)
+### Original image ratio: (182,218,182)
 
 def preprocess(c):
 	# print('--> Case', c)
@@ -35,8 +33,6 @@ def preprocess(c):
 	
 	# Nifti --> np array
 	t1_img = t1.get_fdata()
-	depth = len(t1_img[0][0])
-	# t1_img = np.transpose(nib.load(T1OrigPath).get_fdata(), axes=[2,0,1])
 	fl_img = fl_orig.get_fdata()
 	lbl_img = lbl_orig.get_fdata()
 	
@@ -44,15 +40,14 @@ def preprocess(c):
 	t1_norm = normalize_image(t1_img)
 	fl_norm = normalize_image(fl_img)
 	lbl_norm = normalize_image(lbl_img)
-  
-	# Threshold label to 0 or 1
-	lbl_norm[lbl_norm > 0.1] = 1
-	lbl_norm[lbl_norm <= 0.1] = 0
 
 	# Rescale image
 	t1_rescaled = tf.image.resize(t1_norm, (200,200))
 	fl_rescaled = tf.image.resize(fl_norm, (200,200))
 	lbl_rescaled = tf.image.resize(lbl_norm, (200,200))
+
+	# Threshold label to 0 or 1
+	lbl_rescaled = np.where(lbl_rescaled > 0.1, 1., 0.)
 	
 	# Print image
 	# for z in range(60,140,5):
@@ -62,7 +57,7 @@ def preprocess(c):
 	# plot_image(fl_rescaled[:,:,92], f'FL of {c}')
 	# plot_image(lbl_rescaled[:,:,92], f'LBL of {c}')
 
-	return t1_rescaled.numpy(), fl_rescaled.numpy(), lbl_rescaled.numpy()
+	return t1_rescaled.numpy(), fl_rescaled.numpy(), lbl_rescaled#.numpy()
 
 
 def do_fsl(path_patient, t1_path, fl_path, lbl_path):
