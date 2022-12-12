@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 import tensorflow as tf
 import time
+import PIL
+from PIL import Image, ImageEnhance
 
 from plot import *
 
@@ -48,14 +50,6 @@ def preprocess(c):
 
 	# Threshold label to 0 or 1
 	lbl_rescaled = np.where(lbl_rescaled > 0.1, 1., 0.)
-	
-	# Print image
-	# for z in range(60,140,5):
-	# 	plot_orig_and_lbl(t1_rescaled[:,:,z], fl_rescaled[:,:,z], lbl_rescaled[:,:,z])
-	# plot_orig_and_lbl(t1_rescaled[:,:,49], fl_rescaled[:,:,49], lbl_rescaled[:,:,49])
-	# plot_image(t1_rescaled[:,:,92], f'T1 of {c}')
-	# plot_image(fl_rescaled[:,:,92], f'FL of {c}')
-	# plot_image(lbl_rescaled[:,:,92], f'LBL of {c}')
 
 	return t1_rescaled.numpy(), fl_rescaled.numpy(), lbl_rescaled#.numpy()
 
@@ -116,3 +110,169 @@ def normalize_image(image):
 	min_val, max_val = np.min(image), np.max(image)
 	range = max_val - min_val
 	return (image - min_val) / range
+
+
+def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
+	patient_path = os.path.join(data_path, c).replace("\\","/")
+
+	t1 = None
+	fl = None
+	
+	for filename in os.listdir(patient_path):
+		f = os.path.join(patient_path, filename).replace("\\","/")
+		
+		if 'T1_crop' in filename:
+			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
+			# enhancer = ImageEnhance.Contrast(img)
+			# img = enhancer.enhance(1.7)
+			img = img.resize((100,200), resample=Image.Resampling.NEAREST)
+			img = np.asarray(img)
+			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
+			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
+
+		if 'FL_crop' in filename:
+			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
+			enhancer = ImageEnhance.Contrast(img)
+			img = enhancer.enhance(1.3)
+			img = img.resize((100,200), resample=Image.Resampling.NEAREST)
+			img = np.asarray(img)
+			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
+			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
+
+	do_pm_mri_fsl(c)
+
+	# Path --> nifti image
+	# t1 = nib.load(os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
+	fl = nib.load(os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
+	t1 = nib.load(os.path.join(patient_path, 't1_2_flair.nii.gz').replace("\\","/"))
+	
+	# Nifti --> np array
+	t1_img = t1.get_fdata()
+	fl_img = fl.get_fdata()
+
+	t1_norm = normalize_image(t1_img)
+	fl_norm = normalize_image(fl_img)
+
+	t1_comb = np.hstack([t1_norm, np.fliplr(t1_norm)])
+	t1 = np.rot90(np.rot90(np.rot90(t1_comb)))
+
+	fl_comb = np.hstack([fl_norm, np.fliplr(fl_norm)])
+	fl = np.rot90(np.rot90(np.rot90(fl_comb)))
+
+	# apply cmap
+	t1 = t1_cmap(t1)[:,:,0]
+	fl = fl_cmap(fl)[:,:,0]
+
+	plot_pm_data(t1, fl)
+	
+	return t1, fl
+
+
+def do_pm_mri_fsl(path_patient):
+	startTime = time.time()
+	wsl = 'wsl ~ -e sh -c'
+	fsl = '/usr/local/fsl/bin/'
+	mnt = '/mnt/e/Matthijs/postmortem_MRI/'
+	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
+
+	t1 = os.path.join(path_patient, 't1.nii.gz').replace("\\","/")
+	fl = os.path.join(path_patient, 'fl.nii.gz').replace("\\","/")
+
+	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
+	t1_2_flair_mat = os.path.join(path_patient, 't1_2_flair_mat.mat').replace("\\","/")
+
+	commands = list()
+
+	# commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -2D -dof 12  -interp trilinear"', 'T1 to FLAIR space (FLIRT)'])
+	commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -2D -schedule /usr/local/fsl/etc/flirtsch/sch2D_6dof', 'T1 to FLAIR space (FLIRT)'])
+	# commands.append([f'{start}fnirt -v --in={mnt}{t1_2_flair} --ref={mnt}{fl} --iout={mnt}{fnirted} --warpres=10,10,0"', '5/8 Map t1_2_flair to MNI (FNIRT)'])
+
+	for command,description in commands:
+		# print(f'   --- {description} ---')
+		os.system(command)
+
+	endTime = time.time() - startTime
+	# print("      --- took", round(endTime/60.0,2), "mintues")
+
+
+def preprocess_pm_wmh(c, t1_cmap, fl_cmap, data_path):
+	patient_path = os.path.join(data_path, c).replace("\\","/")
+
+	t1 = None
+	fl = None
+	
+	for filename in os.listdir(patient_path):
+		f = os.path.join(patient_path, filename).replace("\\","/")
+		
+		if 'T1' in filename:
+			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
+			# enhancer = ImageEnhance.Contrast(img)
+			# img = enhancer.enhance(1.7)
+			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
+			img = np.asarray(img)
+			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
+			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
+
+		if 'FL' in filename:
+			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
+			# enhancer = ImageEnhance.Contrast(img)
+			# img = enhancer.enhance(1.3)
+			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
+			img = np.asarray(img)
+			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
+			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
+
+	do_pm_wmh_fsl(c)
+
+	# Path --> nifti image
+	# t1 = nib.load(os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
+	fl = nib.load(os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
+	t1 = nib.load(os.path.join(patient_path, 't1_2_flair.nii.gz').replace("\\","/"))
+	
+	# Nifti --> np array
+	t1_img = t1.get_fdata()
+	fl_img = fl.get_fdata()
+
+	t1_norm = normalize_image(t1_img)
+	fl_norm = normalize_image(fl_img)
+
+	# t1_comb = np.hstack([t1_norm, np.fliplr(t1_norm)])
+	# t1 = np.rot90(np.rot90(np.rot90(t1_comb)))
+
+	# fl_comb = np.hstack([fl_norm, np.fliplr(fl_norm)])
+	# fl = np.rot90(np.rot90(np.rot90(fl_comb)))
+
+	# apply cmap
+	t1 = t1_cmap(t1_norm)[:,:,0]
+	fl = fl_cmap(fl_norm)[:,:,0]
+
+	# plot_pm_data(t1, fl)
+	
+	return t1, fl
+
+
+def do_pm_wmh_fsl(path_patient):
+	startTime = time.time()
+	wsl = 'wsl ~ -e sh -c'
+	fsl = '/usr/local/fsl/bin/'
+	mnt = '/mnt/e/Matthijs/postmortem_WMH/'
+	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
+
+	t1 = os.path.join(path_patient, 't1.nii.gz').replace("\\","/")
+	fl = os.path.join(path_patient, 'fl.nii.gz').replace("\\","/")
+
+	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
+	t1_2_flair_mat = os.path.join(path_patient, 't1_2_flair_mat.mat').replace("\\","/")
+
+	commands = list()
+
+	# commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -2D -dof 12  -interp trilinear"', 'T1 to FLAIR space (FLIRT)'])
+	commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -2D -schedule /usr/local/fsl/etc/flirtsch/sch2D_6dof', 'T1 to FLAIR space (FLIRT)'])
+	# commands.append([f'{start}fnirt -v --in={mnt}{t1_2_flair} --ref={mnt}{fl} --iout={mnt}{fnirted} --warpres=10,10,0"', '5/8 Map t1_2_flair to MNI (FNIRT)'])
+
+	for command,description in commands:
+		# print(f'   --- {description} ---')
+		os.system(command)
+
+	endTime = time.time() - startTime
+	# print("      --- took", round(endTime/60.0,2), "mintues")

@@ -5,6 +5,7 @@ os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
+import datetime
 import numpy as np
 from tqdm import tqdm
 from sklearn.utils import shuffle
@@ -64,7 +65,7 @@ if __name__ == '__main__':
     
 
     # Make and fit model, OR load trained model
-    train = False
+    train = True
     
     if not train:
         # Load test datasets
@@ -72,7 +73,7 @@ if __name__ == '__main__':
         # test_img, test_lbl = shuffle(np.load(path_test_img), np.load(path_test_lbl))
         test_img = np.load(path_test_img)
         test_lbl = np.load(path_test_lbl)
-        
+
         # Make pred arrays for ensemble prediction
         model = build_unet(unet_input_shape)
         temp_pred = model.predict(np.array([test_img[0]]), batch_size=None)[0]
@@ -88,20 +89,22 @@ if __name__ == '__main__':
             train_img, train_lbl = shuffle(np.load(path_train_img), np.load(path_train_lbl))
             
             # Prepare training data (generator)
-            generator = ImageDataGenerator(validation_split=0.2)
-            train_generator = generator.flow(train_img, train_lbl, batch_size=training_batch_size, subset='training', ignore_class_split=True)
-            valid_generator = generator.flow(train_img, train_lbl, batch_size=training_batch_size, subset='validation', ignore_class_split=True)
+            train_gen = ImageDataGenerator(validation_split=0.2, rotation_range=15, shear_range=18., zoom_range=0.1)
+            valid_gen = ImageDataGenerator(validation_split=0.2)
+            train_generator = train_gen.flow(train_img, train_lbl, batch_size=training_batch_size, subset='training', ignore_class_split=True)
+            valid_generator = valid_gen.flow(train_img, train_lbl, batch_size=training_batch_size, subset='validation', ignore_class_split=True)
 
             # Make model
             model = build_unet(unet_input_shape)
 
-            # Create callback
+            # Create callbacks
             checkpoint_filepath = os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/")
+            tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(checkpoint_filepath, "./logs", datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
             model_checkpoint = ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=False, monitor='val_dice_coef', mode='max', save_best_only=True, verbose=1)
 
             # Train U-net
             print(f'--> Training model {ensemble}')
-            model_history = model.fit(train_generator, validation_data=train_generator, epochs=training_epochs, callbacks=[model_checkpoint])
+            model_history = model.fit(train_generator, validation_data=train_generator, epochs=training_epochs, callbacks=[tensorboard_callback, model_checkpoint])
             
             # Plot training and save plot
             plot_training(model_history, ensemble)
@@ -123,21 +126,20 @@ if __name__ == '__main__':
         # Make prediction
         if not train:
             # For 1 prediction
-            # image_nr = 150
-            # prediction = model.predict(np.array([test_img[image_nr]]), batch_size=None)[0]
-            # preds[0] = preds[0] + prediction
-            # plot_prediction(test_img[image_nr][:,:,0], test_img[image_nr][:,:,1], test_lbl[image_nr], prediction)
+            image_nr = 150
+            prediction = model.predict(np.array([test_img[image_nr]]), batch_size=None)[0]
+            preds[0] = preds[0] + prediction
 
             # For full test set
-            print('   --> Make predictions')
-            predictions = model.predict(test_img, batch_size=16)
-            for i, p in enumerate(preds):
-                preds[i] = p + predictions[i]
+            # print('   --> Make predictions')
+            # predictions = model.predict(test_img, batch_size=16)
+            # for i, p in enumerate(preds):
+            #     preds[i] = p + predictions[i]
     
     # Average and threshold prediction
     preds = np.divide(preds, training_ensemble)
     preds = np.where(preds > 0.35, 1., 0.)
-    # plot_prediction(test_img[image_nr][:,:,0], test_img[image_nr][:,:,1], test_lbl[image_nr], preds[0])
+    plot_prediction(test_img[image_nr][:,:,0], test_img[image_nr][:,:,1], test_lbl[image_nr], preds[0])
     
     metrics = {}
     count = 0

@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import scipy.spatial
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def iou_coef(y_true, y_pred):
@@ -273,3 +274,9 @@ def determine_training(f1, l1, f2, l2, f3, l3, f4, l4, case=''):
             continue
 
     plt.close()
+
+
+def get_cmap():
+    t1_cmap = LinearSegmentedColormap.from_list('t1_cmap', ['#0D0D0D','#404040','#8C8C8C','#D9D9D9', '#F2F2F2'], N=255)
+    fl_cmap = LinearSegmentedColormap.from_list('fl_cmap', ['#0D0D0D','#595959','#8C8C8C','#A6A6A6', '#F2F2F2'], N=255)
+    return t1_cmap, fl_cmap

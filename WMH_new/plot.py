@@ -85,3 +85,52 @@ def plot_prediction(t1_orig, fl_orig, label, prediction, metrics=''):
     plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'prediction').replace("\\","/"))
 
     plt.show()
+
+
+def plot_pm_data(t1, fl):
+    # Plot t1, fl, lbl and prediction
+    fig, ax = plt.subplots(1,2, figsize=(10, 5))
+    ax[0].imshow(np.rot90(t1), cmap='gray')
+    ax[0].set_title('T1')
+    ax[0].axis('off')
+
+    ax[1].imshow(np.rot90(fl), cmap='gray')
+    ax[1].set_title('FLAIR')
+    ax[1].axis('off')
+
+    # ax[0].imshow(np.rot90(fl), cmap='Blues', alpha=0.5)
+    # ax[0].set_title('FLAIR')
+    # ax[0].axis('off')
+
+    plt.show()
+
+
+def plot_pm_prediction(t1_orig, fl_orig, prediction, number, metrics=''):
+    # Plot t1, fl, lbl and prediction
+    fig, ax = plt.subplots(1,3, figsize=(15, 5))
+    fig.suptitle(metrics)
+    ax[0].imshow(np.rot90(t1_orig), cmap='gray')
+    ax[0].set_title('Original T1')
+    ax[0].axis('off')
+
+    ax[1].imshow(np.rot90(fl_orig), cmap='gray')
+    ax[1].set_title('Original FL')
+    ax[1].axis('off')
+
+    ax[2].imshow(np.rot90(fl_orig), cmap='gray')
+    ax[2].set_title('FL with pred')
+    ax[2].axis('off')
+
+    # ax[2].imshow(np.rot90(prediction), cmap='gray')
+    # ax[2].set_title('Prediction')
+    # ax[2].axis('off')
+
+    ax[2].imshow(np.rot90(prediction), cmap='hot', alpha=0.5)
+    ax[2].axis('off')
+
+    if not os.path.exists(os.path.join(parameters.path_pm_predictions, 'pm_wmh').replace("\\","/")):
+            os.makedirs(os.path.join(parameters.path_pm_predictions, 'pm_wmh').replace("\\","/"))
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'pm_wmh', str(number)).replace("\\","/"))
+    
+    # plt.show()
+    plt.close()

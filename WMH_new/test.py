@@ -1,7 +1,5 @@
-import numpy as np
+from preprocess import preprocess_pm
+from utils import * 
 
-x = np.random.randint(0, 5, size=(2,2,2))
-print(x)
-x = np.where(x > 2, 1, 0)
-print(x)
-
+t1_cmap, fl_cmap = get_cmap()
+preprocess_pm('C026C_B2_VNTR', t1_cmap, fl_cmap)

@@ -17,6 +17,6 @@ def load_cases(filePath):
 		i = i+1
 	return result
 
-def load_pm_data():
-	cases = load_cases(parameters.path_pm_cases)
+def load_pm_data(path):
+	cases = load_cases(path)
 	return cases

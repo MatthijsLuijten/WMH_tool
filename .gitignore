@@ -15,3 +15,6 @@
 /WMH_old/material
 /WMH_old/train_and_test
 /WMH_old/exploit
+
+# post-mortem predictions
+/WMH_new/pm_predictions

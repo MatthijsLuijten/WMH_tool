@@ -1,14 +1,14 @@
 import utils
 
 ########## U-Net parameters ##########
-unet_version = 'Dice_ens_v3'                                            # !!!!! Change for new run      'IoU' ||| 'Dice' 
+unet_version = 'Data_aug'                                           
 unet_input_shape = (200,200,2)
 unet_dropout = 0.1
 unet_lr = 2e-3
 
 ########## Training parameters ##########
 training_batch_size = 16
-training_epochs = 30
+training_epochs = 150
 training_validation_split = 0.2
 # CHANGE BOTH
 training_loss = utils.dice_coef_loss, 'Dice Coeff.'               # !!!!! Change for new run     utils.iou_coef_loss, 'IoU Coeff.' ||| utils.dice_coef_loss, 'Dice Coeff.'
@@ -39,4 +39,13 @@ path_testcases = 'RUNDMC/2006/test50.txt'
 path_model_checkpoint = 'WMH_new/checkpoints'
 
 ########## Post Mortem ##########
-path_pm_cases = 'E:/Matthijs/postmortem_MRI'
+path_pm_mri_cases = 'E:/Matthijs/postmortem_MRI/cases.txt'
+path_pm_mri_data = 'E:/Matthijs/postmortem_MRI'
+path_pm_mri_dataset = 'WMH_new/datasets/pm_mri_data.npy'
+
+path_pm_wmh_cases = 'E:/Matthijs/postmortem_WMH/cases.txt'
+path_pm_wmh_data = 'E:/Matthijs/postmortem_WMH'
+path_pm_wmh_dataset = 'WMH_new/datasets/pm_wmh_data.npy'
+
+
+path_pm_predictions = 'WMH_new/pm_predictions'
