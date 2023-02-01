@@ -6,12 +6,41 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 import tensorflow as tf
 import time
-import PIL
+from tqdm import tqdm
 from PIL import Image, ImageEnhance
 
 from plot import *
+from utils import normalize_image
 
-### Original image ratio: (182,218,182)
+
+def preprocess_data(train_cases, test_cases):
+    # Make train and test datasets
+	train_img, train_lbl, test_img, test_lbl = [], [], [], []
+
+	# Preprocess training cases
+	for case in tqdm(train_cases):
+		t1, fl, lbl, _ = preprocess(case)
+		for slice in range(len(t1[0][0])):
+			if slice >= 39 and slice <= 149:
+				train_img.append(np.dstack((t1[:,:,slice], fl[:,:,slice])))
+				train_lbl.append(np.reshape(lbl[:,:,slice], (182,218,1)))
+				
+	# Preprocess test cases
+	for case in tqdm(test_cases):
+		t1, fl, lbl, _ = preprocess(case)
+		for slice in range(len(t1[0][0])):
+			if slice > 39 and slice < 149:
+				test_img.append(np.dstack((t1[:,:,slice], fl[:,:,slice])))
+				test_lbl.append(np.reshape(lbl[:,:,slice], (182,218,1)))
+
+	# Convert lists to numpy arrays
+	train_img = np.array(train_img)
+	train_lbl = np.array(train_lbl)
+	test_img = np.array(test_img)
+	test_lbl = np.array(test_lbl)
+
+	return train_img, train_lbl, test_img, test_lbl
+
 
 def preprocess(c):
 	# print('--> Case', c)
@@ -44,14 +73,14 @@ def preprocess(c):
 	lbl_norm = normalize_image(lbl_img)
 
 	# Rescale image
-	t1_rescaled = tf.image.resize(t1_norm, (200,200))
-	fl_rescaled = tf.image.resize(fl_norm, (200,200))
-	lbl_rescaled = tf.image.resize(lbl_norm, (200,200))
+	# t1_rescaled = tf.image.resize(t1_norm, (200,200))
+	# fl_rescaled = tf.image.resize(fl_norm, (200,200))
+	# lbl_rescaled = tf.image.resize(lbl_norm, (200,200))
 
 	# Threshold label to 0 or 1
-	lbl_rescaled = np.where(lbl_rescaled > 0.1, 1., 0.)
+	lbl_norm = np.where(lbl_norm > 0.1, 1., 0.)
 
-	return t1_rescaled.numpy(), fl_rescaled.numpy(), lbl_rescaled#.numpy()
+	return t1_norm, fl_norm, lbl_norm, fl_orig.affine
 
 
 def do_fsl(path_patient, t1_path, fl_path, lbl_path):
@@ -106,10 +135,82 @@ def do_fsl(path_patient, t1_path, fl_path, lbl_path):
 	print("      --- took", round(endTime/60.0,2), "mintues")
 
 	
-def normalize_image(image):
-	min_val, max_val = np.min(image), np.max(image)
-	range = max_val - min_val
-	return (image - min_val) / range
+def preprocess_pm_data(train_cases, test_cases):
+    # Make train and test datasets
+	train_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, test_img, test_lbl_wmh, test_lbl_nawm, test_lbl_gm = [], [], [], [], [], [], [], []
+
+	# Preprocess training cases
+	for case in tqdm(train_cases):
+		t1, fl, lbl_wmh, lbl_nawm, lbl_gm = preprocess_pm(case)
+		train_img.append(np.dstack((t1, fl)))
+		train_lbl_wmh.append(np.reshape(lbl_wmh, (200,200,1)))
+		train_lbl_nawm.append(np.reshape(lbl_nawm, (200,200,1)))
+		train_lbl_gm.append(np.reshape(lbl_gm, (200,200,1)))
+				
+	# Preprocess test cases
+	for case in tqdm(test_cases):
+		t1, fl, lbl_wmh, lbl_nawm, lbl_gm = preprocess_pm(case)
+		test_img.append(np.dstack((t1, fl)))
+		test_lbl_wmh.append(np.reshape(lbl_wmh, (200,200,1)))
+		test_lbl_nawm.append(np.reshape(lbl_nawm, (200,200,1)))
+		test_lbl_gm.append(np.reshape(lbl_gm, (200,200,1)))
+
+	# Convert lists to numpy arrays
+	train_img = np.array(train_img)
+	train_lbl_wmh = np.array(train_lbl_wmh)
+	train_lbl_nawm = np.array(train_lbl_nawm)
+	train_lbl_gm = np.array(train_lbl_gm)
+	test_img = np.array(test_img)
+	test_lbl_wmh = np.array(test_lbl_wmh)
+	test_lbl_nawm = np.array(test_lbl_nawm)
+	test_lbl_gm = np.array(test_lbl_gm)
+
+	return train_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, test_img, test_lbl_wmh, test_lbl_nawm, test_lbl_gm
+
+
+def preprocess_pm(c):
+	# print('--> Case', c)
+	path_patient = os.path.join(parameters.path_pm_wmh_data, c).replace("\\","/")
+
+	# Path --> nifti image
+	t1 = nib.load(os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/"))
+	fl = nib.load(os.path.join(path_patient, 'fl.nii.gz').replace("\\","/"))
+	
+	# Nifti --> np array
+	t1_img = t1.get_fdata()
+	fl_img = fl.get_fdata()
+	# lbl_img = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_WMH.tiff').replace("\\","/")).convert('L')
+	wmh_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_WMH.tiff').replace("\\","/")).convert('L')
+	nawm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_NAWM.tiff').replace("\\","/")).convert('L')
+	gm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_GM.tiff').replace("\\","/")).convert('L')
+	
+	# Normalize to 0-1
+	t1_norm = normalize_image(t1_img)
+	fl_norm = normalize_image(fl_img)
+	# lbl_norm = normalize_image(lbl_img)
+	wmh_lbl_norm = normalize_image(wmh_lbl)
+	nawm_lbl_norm = normalize_image(nawm_lbl)
+	gm_lbl_norm = normalize_image(gm_lbl)
+	
+	# Rescale image
+	t1_rescaled = np.array(Image.fromarray(t1_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	fl_rescaled = np.array(Image.fromarray(fl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	# lbl_rescaled = np.array(Image.fromarray(lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	wmh_lbl_rescaled = np.array(Image.fromarray(wmh_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	nawm_lbl_rescaled = np.array(Image.fromarray(nawm_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	gm_lbl_rescaled = np.array(Image.fromarray(gm_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	
+	# Threshold label to 0 or 1
+	# lbl_rescaled = np.where(np.array(lbl_rescaled) > 0.1, 1., 0.)
+	wmh_lbl_rescaled = np.where(np.array(wmh_lbl_rescaled) > 0.1, 1., 0.)
+	nawm_lbl_rescaled = np.where(np.array(nawm_lbl_rescaled) > 0.1, 1., 0.)
+	gm_lbl_rescaled = np.where(np.array(gm_lbl_rescaled) > 0.1, 1., 0.)
+
+	# Add labels into one image
+	# lbl_rescaled = wmh_lbl_rescaled + 2*np.where(np.array(nawm_lbl_rescaled-10*wmh_lbl_rescaled) > 0.1, 1., 0.) + 3*np.where(np.array(gm_lbl_rescaled-10*nawm_lbl_rescaled-10*wmh_lbl_rescaled) > 0.1, 1., 0.)
+
+	# plot_orig_and_lbl(t1_rescaled, fl_rescaled, lbl_rescaled)
+	return t1_rescaled, fl_rescaled, wmh_lbl_rescaled, nawm_lbl_rescaled, gm_lbl_rescaled
 
 
 def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
@@ -125,7 +226,7 @@ def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
 			# enhancer = ImageEnhance.Contrast(img)
 			# img = enhancer.enhance(1.7)
-			img = img.resize((100,200), resample=Image.Resampling.NEAREST)
+			img = img.resize((91,218), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
@@ -134,7 +235,7 @@ def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
 			enhancer = ImageEnhance.Contrast(img)
 			img = enhancer.enhance(1.3)
-			img = img.resize((100,200), resample=Image.Resampling.NEAREST)
+			img = img.resize((91,218), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
@@ -162,14 +263,15 @@ def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
 	# apply cmap
 	t1 = t1_cmap(t1)[:,:,0]
 	fl = fl_cmap(fl)[:,:,0]
+	
+	# t1, fl = add_padding(t1, fl, 27, 24, 23, 22)
 
-	plot_pm_data(t1, fl)
+	# plot_pm_data(t1, fl)
 	
 	return t1, fl
 
 
 def do_pm_mri_fsl(path_patient):
-	startTime = time.time()
 	wsl = 'wsl ~ -e sh -c'
 	fsl = '/usr/local/fsl/bin/'
 	mnt = '/mnt/e/Matthijs/postmortem_MRI/'
@@ -191,9 +293,6 @@ def do_pm_mri_fsl(path_patient):
 		# print(f'   --- {description} ---')
 		os.system(command)
 
-	endTime = time.time() - startTime
-	# print("      --- took", round(endTime/60.0,2), "mintues")
-
 
 def preprocess_pm_wmh(c, t1_cmap, fl_cmap, data_path):
 	patient_path = os.path.join(data_path, c).replace("\\","/")
@@ -206,18 +305,14 @@ def preprocess_pm_wmh(c, t1_cmap, fl_cmap, data_path):
 		
 		if 'T1' in filename:
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			# enhancer = ImageEnhance.Contrast(img)
-			# img = enhancer.enhance(1.7)
-			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
+			img = img.resize((218,182), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
 
 		if 'FL' in filename:
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			# enhancer = ImageEnhance.Contrast(img)
-			# img = enhancer.enhance(1.3)
-			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
+			img = img.resize((218,182), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
@@ -252,7 +347,6 @@ def preprocess_pm_wmh(c, t1_cmap, fl_cmap, data_path):
 
 
 def do_pm_wmh_fsl(path_patient):
-	startTime = time.time()
 	wsl = 'wsl ~ -e sh -c'
 	fsl = '/usr/local/fsl/bin/'
 	mnt = '/mnt/e/Matthijs/postmortem_WMH/'
@@ -273,6 +367,3 @@ def do_pm_wmh_fsl(path_patient):
 	for command,description in commands:
 		# print(f'   --- {description} ---')
 		os.system(command)
-
-	endTime = time.time() - startTime
-	# print("      --- took", round(endTime/60.0,2), "mintues")

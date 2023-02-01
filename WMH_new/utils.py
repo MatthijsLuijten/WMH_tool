@@ -1,9 +1,15 @@
 from keras import backend as K
 import numpy as np
+import tensorflow as tf
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 import scipy.spatial
+from PIL import Image
 from matplotlib.colors import LinearSegmentedColormap
+import parameters
+from tqdm import tqdm
+import albumentations as A
+from sklearn.utils import shuffle
 
 
 def iou_coef(y_true, y_pred):
@@ -26,6 +32,18 @@ def dice_coef(y_true, y_pred):
 
 def dice_coef_loss(y_true, y_pred):
     return -dice_coef(y_true, y_pred)
+
+
+def dice_coef_multilabel(y_true, y_pred, numLabels=4):
+    weights = [0.580184, 3.90522226, 0.71173312, 1.62516944]
+    dice=0
+    for index in range(numLabels):
+        dice += (dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index]) * weights[index])
+    return dice
+
+
+def dice_coef_multilabel_loss(y_true, y_pred):
+    return -dice_coef_multilabel(y_true, y_pred)
 
 
 def getDSC(testImage, resultImage):    
@@ -280,3 +298,110 @@ def get_cmap():
     t1_cmap = LinearSegmentedColormap.from_list('t1_cmap', ['#0D0D0D','#404040','#8C8C8C','#D9D9D9', '#F2F2F2'], N=255)
     fl_cmap = LinearSegmentedColormap.from_list('fl_cmap', ['#0D0D0D','#595959','#8C8C8C','#A6A6A6', '#F2F2F2'], N=255)
     return t1_cmap, fl_cmap
+
+
+def resize_image(image):
+  return tf.image.resize(image, (182,218))
+
+
+def save_datasets(train_img, train_lbl, test_img, test_lbl):
+    # Save datasets
+    np.save(parameters.path_train_img, train_img)
+    np.save(parameters.path_train_lbl, train_lbl)
+    np.save(parameters.path_test_img, test_img)
+    np.save(parameters.path_test_lbl, test_lbl)
+
+
+def save_pm_datasets(train_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, test_img, test_lbl_wmh, test_lbl_nawm, test_lbl_gm):
+    # Save datasets
+    # PM WMH INPUT IMAGES
+    np.save(parameters.path_pm_train_img, train_img)
+    np.save(parameters.path_pm_test_img, test_img)
+
+    # PM WMH
+    np.save(parameters.path_wmh_train_lbl, train_lbl_wmh)
+    np.save(parameters.path_wmh_test_lbl, test_lbl_wmh)
+
+    # PM NAWM
+    np.save(parameters.path_nawm_train_lbl, train_lbl_nawm)
+    np.save(parameters.path_nawm_test_lbl, test_lbl_nawm)
+
+    # PM GM
+    np.save(parameters.path_gm_train_lbl, train_lbl_gm)
+    np.save(parameters.path_gm_test_lbl, test_lbl_gm)
+
+
+def normalize_image(image):
+    min_val, max_val = np.min(image), np.max(image)
+    range = max_val - min_val
+    if range == 0:
+        return np.array(image)
+    else:
+        return (image - min_val) / range
+
+
+def evaluate_metrics(preds, test_lbl):
+    # Initialize metrics
+    metrics = {}
+
+    # Iterate over predictions and labels
+    for p, l in zip(preds, test_lbl):
+        # Skip if both prediction and label are empty
+        if np.sum(l) == 0:
+            continue
+
+        # Compute evaluation metrics
+        dsc = round(getDSC(l, p), 3)
+        avd = round(getAVD2(l, p), 3)
+        recall, f1 = getLesionDetection(l, p)
+        recall = round(recall, 3)
+        f1 = round(f1, 3)
+
+        # Update metrics
+        metrics['DSC'] = metrics.get('DSC', 0) + dsc
+        metrics['AVD'] = metrics.get('AVD', 0) + avd
+        metrics['Recall'] = metrics.get('Recall', 0) + recall
+        metrics['F1'] = metrics.get('F1', 0) + f1
+
+    # Average metrics
+    count = len(preds)
+    metrics = {k: v / count for k, v in metrics.items()}
+
+    # Print metrics
+    print(metrics)
+
+
+import numpy as np
+
+
+def augment_data(train_img, train_lbl):
+    aug = A.Compose([
+        A.VerticalFlip(p=0.5),              
+        A.RandomRotate90(p=0.5),
+        A.OneOf([
+            A.ElasticTransform(alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03, border_mode=0, value=0., p=.5),
+            A.GridDistortion(p=0.5, border_mode=0, value=0.),
+            # A.OpticalDistortion(distort_limit=2, shift_limit=0.5, p=1)
+            ], p=0.8),
+        # A.CLAHE(p=0.8),
+        A.GaussNoise(var_limit=(0.1),p=.3),
+        A.RandomBrightnessContrast(p=0.8),    
+        A.RandomGamma(p=0.8)],
+        p=.95)
+    
+    aug_train_img, aug_train_lbl = [], []
+    for i, t in tqdm(enumerate(train_img)):
+        for _ in range(50):
+            augmented = aug(image=t, mask=train_lbl[i])
+            augmented_input = augmented['image']
+            augmented_mask = augmented['mask']
+            aug_train_img.append(augmented_input)
+            aug_train_lbl.append(augmented_mask)
+
+    return shuffle(np.array(aug_train_img), np.array(aug_train_lbl))
+
+
+def create_mask(pred_mask):
+  pred_mask = tf.math.argmax(pred_mask, axis=-1)
+  pred_mask = pred_mask[..., tf.newaxis]
+  return pred_mask[0]

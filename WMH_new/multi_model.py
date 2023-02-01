@@ -8,7 +8,7 @@ from utils import *
 
 #################### The U-Net Model ####################
 #Build Unet using the blocks
-def build_unet(input_shape):
+def build_multi_unet(input_shape):
     inputs = Input(input_shape)
 
     s1, p1 = encoder_block(inputs, 64, kernel_size=5)
@@ -25,11 +25,11 @@ def build_unet(input_shape):
 
     ch, cw = get_crop_shape(inputs, d4)
     outputs = ZeroPadding2D(padding=(ch, cw))(d4)
-    outputs = Conv2D(1, 1, activation="sigmoid")(outputs)  #Binary (can be multiclass)
+    outputs = Conv2D(4, 1, activation="softmax")(outputs)  #sigmoid (1) or softmax (4)
 
     model = Model(inputs, outputs, name="U-Net")
 
-    model.compile(optimizer=Adam(learning_rate=parameters.unet_lr), loss = parameters.training_loss[0], metrics = dice_coef)
+    model.compile(optimizer=Adam(learning_rate=parameters.unet_lr), loss = dice_coef_multilabel_loss, metrics = [dice_coef_multilabel, 'accuracy'])
     # model.summary(150)
 
     return model

@@ -47,7 +47,7 @@ if __name__ == '__main__':
                 pm_data.append(np.dstack((t1,fl)))
             
             pm_data = np.array(pm_data) 
-            np.save(path_pm_wmh_dataset, pm_data)
+            # np.save(path_pm_wmh_dataset, pm_data)
         
         
     else:
