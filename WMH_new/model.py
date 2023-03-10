@@ -29,7 +29,7 @@ def build_unet(input_shape):
 
     model = Model(inputs, outputs, name="U-Net")
 
-    model.compile(optimizer=Adam(learning_rate=parameters.unet_lr), loss = parameters.training_loss[0], metrics = dice_coef)
+    model.compile(optimizer=Adam(learning_rate=parameters.unet_lr), loss = dice_coef_loss, metrics = dice_coef)
     # model.summary(150)
 
     return model

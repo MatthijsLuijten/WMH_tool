@@ -16,6 +16,7 @@ import parameters
 from model import build_unet
 from preprocess import preprocess
 from dataloader import load_all_data
+import plot
 
 
 if __name__ == '__main__':
@@ -26,7 +27,7 @@ if __name__ == '__main__':
 
     for c in tqdm(cases):
         # Load all MRI data for the current patient
-        t1, fl, _, affine = preprocess(c)
+        t1, fl, lbl, affine = preprocess(c)
         
         # Concatenate T1 and FL scans along the third dimension to create a 3D input tensor
         input = np.array([np.dstack((t1[:,:,i], fl[:,:,i])) for i in range(len(t1[0][0]))])
@@ -41,7 +42,6 @@ if __name__ == '__main__':
             model.load_weights(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(i)).replace("\\","/")).expect_partial()
             models.append(model)
 
-
         for model in models:
             # make predictions
             model_predictions = model.predict(input, batch_size=None)
@@ -54,6 +54,7 @@ if __name__ == '__main__':
         
         preds_thresholded = np.where(preds >= 0.35, 1, 0)
         preds_thresholded = np.transpose(preds_thresholded, (1,2,0,3))
+        # plot.plot_lbl_and_pred(fl, lbl, preds_thresholded)
 
         # Make it a 3d nifti file
         wmh_nii = nib.Nifti1Image(preds_thresholded, affine)

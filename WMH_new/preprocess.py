@@ -2,18 +2,16 @@ import os
 import parameters
 import nibabel as nib
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import normalize
-import tensorflow as tf
 import time
 from tqdm import tqdm
-from PIL import Image, ImageEnhance
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
 
 from plot import *
-from utils import normalize_image
+from utils import normalize_image, original_or_flirt
 
 
-def preprocess_data(train_cases, test_cases):
+def preprocess_in_vivo_data(train_cases, test_cases):
     # Make train and test datasets
 	train_img, train_lbl, test_img, test_lbl = [], [], [], []
 
@@ -34,15 +32,14 @@ def preprocess_data(train_cases, test_cases):
 				test_lbl.append(np.reshape(lbl[:,:,slice], (182,218,1)))
 
 	# Convert lists to numpy arrays
-	train_img = np.array(train_img)
-	train_lbl = np.array(train_lbl)
-	test_img = np.array(test_img)
-	test_lbl = np.array(test_lbl)
+	train_img, train_lbl, test_img, test_lbl = map(np.array, (train_img, train_lbl, test_img, test_lbl))
+
 
 	return train_img, train_lbl, test_img, test_lbl
 
 
 def preprocess(c):
+	# Determine which path to use based on the case name
 	# print('--> Case', c)
 	if c.startswith('2015_RUNDMC'):
 		path_patient = os.path.join(parameters.path_data_2015, c).replace("\\","/")
@@ -72,11 +69,6 @@ def preprocess(c):
 	fl_norm = normalize_image(fl_img)
 	lbl_norm = normalize_image(lbl_img)
 
-	# Rescale image
-	# t1_rescaled = tf.image.resize(t1_norm, (200,200))
-	# fl_rescaled = tf.image.resize(fl_norm, (200,200))
-	# lbl_rescaled = tf.image.resize(lbl_norm, (200,200))
-
 	# Threshold label to 0 or 1
 	lbl_norm = np.where(lbl_norm > 0.1, 1., 0.)
 
@@ -91,7 +83,6 @@ def do_fsl(path_patient, t1_path, fl_path, lbl_path):
 	mnt = '/mnt/c/Research/Matthijs/WMH_tool/'
 	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
 	mni_bet = 'WMH_new/material/MNI152_T1_1mm_brain.nii.gz'
-	mni_t1 = 'WMH_new/material/MNI152_T1_1mm.nii.gz'
 	
 	# Files to be made
 	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
@@ -168,6 +159,29 @@ def preprocess_pm_data(train_cases, test_cases):
 	return train_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, test_img, test_lbl_wmh, test_lbl_nawm, test_lbl_gm
 
 
+def preprocess_pm_data_lfb(cases):
+    # Make train and test datasets
+	input_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, lfb_img = [], [], [], [], []
+
+	# Preprocess training cases
+	for case in tqdm(cases):
+		t1, fl, lfb, lbl_wmh, lbl_nawm, lbl_gm = preprocess_pm_lfb(case)
+		input_img.append(np.dstack((t1, fl)))
+		lfb_img.append(lfb)
+		train_lbl_wmh.append(np.reshape(lbl_wmh, (200,200,1)))
+		train_lbl_nawm.append(np.reshape(lbl_nawm, (200,200,1)))
+		train_lbl_gm.append(np.reshape(lbl_gm, (200,200,1)))
+
+	# Convert lists to numpy arrays
+	input_img = np.array(input_img)
+	train_lbl_wmh = np.array(train_lbl_wmh)
+	train_lbl_nawm = np.array(train_lbl_nawm)
+	train_lbl_gm = np.array(train_lbl_gm)
+	lfb_img = np.array(lfb_img)
+
+	return input_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, lfb_img
+
+
 def preprocess_pm(c):
 	# print('--> Case', c)
 	path_patient = os.path.join(parameters.path_pm_wmh_data, c).replace("\\","/")
@@ -179,191 +193,155 @@ def preprocess_pm(c):
 	# Nifti --> np array
 	t1_img = t1.get_fdata()
 	fl_img = fl.get_fdata()
-	# lbl_img = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_WMH.tiff').replace("\\","/")).convert('L')
+		
 	wmh_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_WMH.tiff').replace("\\","/")).convert('L')
 	nawm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_NAWM.tiff').replace("\\","/")).convert('L')
 	gm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_GM.tiff').replace("\\","/")).convert('L')
 	
-	# Normalize to 0-1
-	t1_norm = normalize_image(t1_img)
-	fl_norm = normalize_image(fl_img)
-	# lbl_norm = normalize_image(lbl_img)
-	wmh_lbl_norm = normalize_image(wmh_lbl)
-	nawm_lbl_norm = normalize_image(nawm_lbl)
-	gm_lbl_norm = normalize_image(gm_lbl)
-	
 	# Rescale image
-	t1_rescaled = np.array(Image.fromarray(t1_norm).resize((200,200), resample=Image.Resampling.NEAREST))
-	fl_rescaled = np.array(Image.fromarray(fl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
-	# lbl_rescaled = np.array(Image.fromarray(lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
-	wmh_lbl_rescaled = np.array(Image.fromarray(wmh_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
-	nawm_lbl_rescaled = np.array(Image.fromarray(nawm_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
-	gm_lbl_rescaled = np.array(Image.fromarray(gm_lbl_norm).resize((200,200), resample=Image.Resampling.NEAREST))
+	t1_rescaled = np.array(Image.fromarray(t1_img).resize((200,200), resample=Image.Resampling.BICUBIC))
+	fl_rescaled = np.array(Image.fromarray(fl_img).resize((200,200), resample=Image.Resampling.BICUBIC))
+	wmh_lbl_rescaled = np.array(wmh_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
+	nawm_lbl_rescaled = np.array(nawm_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
+	gm_lbl_rescaled = np.array(gm_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
+
+	# Normalize to 0-1
+	t1_norm = normalize_image(t1_rescaled)
+	fl_norm = normalize_image(fl_rescaled)
+	wmh_lbl_norm = normalize_image(wmh_lbl_rescaled)
+	nawm_lbl_norm = normalize_image(nawm_lbl_rescaled)
+	gm_lbl_norm = normalize_image(gm_lbl_rescaled)
 	
 	# Threshold label to 0 or 1
-	# lbl_rescaled = np.where(np.array(lbl_rescaled) > 0.1, 1., 0.)
-	wmh_lbl_rescaled = np.where(np.array(wmh_lbl_rescaled) > 0.1, 1., 0.)
-	nawm_lbl_rescaled = np.where(np.array(nawm_lbl_rescaled) > 0.1, 1., 0.)
-	gm_lbl_rescaled = np.where(np.array(gm_lbl_rescaled) > 0.1, 1., 0.)
-
-	# Add labels into one image
-	# lbl_rescaled = wmh_lbl_rescaled + 2*np.where(np.array(nawm_lbl_rescaled-10*wmh_lbl_rescaled) > 0.1, 1., 0.) + 3*np.where(np.array(gm_lbl_rescaled-10*nawm_lbl_rescaled-10*wmh_lbl_rescaled) > 0.1, 1., 0.)
-
-	# plot_orig_and_lbl(t1_rescaled, fl_rescaled, lbl_rescaled)
-	return t1_rescaled, fl_rescaled, wmh_lbl_rescaled, nawm_lbl_rescaled, gm_lbl_rescaled
+	wmh_lbl_norm = np.where(np.array(wmh_lbl_norm) > 0.1, 1., 0.)
+	nawm_lbl_norm = np.where(np.array(nawm_lbl_norm) > 0.1, 1., 0.)
+	gm_lbl_norm = np.where(np.array(gm_lbl_norm) > 0.1, 1., 0.)
+	return t1_norm, fl_norm, wmh_lbl_norm, nawm_lbl_norm, gm_lbl_norm
 
 
-def preprocess_pm_mri(c, t1_cmap, fl_cmap, data_path):
-	patient_path = os.path.join(data_path, c).replace("\\","/")
-
-	t1 = None
-	fl = None
-	
-	for filename in os.listdir(patient_path):
-		f = os.path.join(patient_path, filename).replace("\\","/")
-		
-		if 'T1_crop' in filename:
-			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			# enhancer = ImageEnhance.Contrast(img)
-			# img = enhancer.enhance(1.7)
-			img = img.resize((91,218), resample=Image.Resampling.NEAREST)
-			img = np.asarray(img)
-			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
-			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
-
-		if 'FL_crop' in filename:
-			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			enhancer = ImageEnhance.Contrast(img)
-			img = enhancer.enhance(1.3)
-			img = img.resize((91,218), resample=Image.Resampling.NEAREST)
-			img = np.asarray(img)
-			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
-			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
-
-	do_pm_mri_fsl(c)
+def preprocess_pm_lfb(c):
+	# print('--> Case', c)
+	path_patient = os.path.join(parameters.path_pm_wmh_data, c).replace("\\","/")
 
 	# Path --> nifti image
-	# t1 = nib.load(os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
-	fl = nib.load(os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
-	t1 = nib.load(os.path.join(patient_path, 't1_2_flair.nii.gz').replace("\\","/"))
+	t1 = nib.load(os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/"))
+	fl = nib.load(os.path.join(path_patient, 'fl.nii.gz').replace("\\","/"))
+	lfb = nib.load(os.path.join(path_patient, 'lfb_2_flair.nii.gz').replace("\\","/"))
 	
 	# Nifti --> np array
 	t1_img = t1.get_fdata()
 	fl_img = fl.get_fdata()
-
-	t1_norm = normalize_image(t1_img)
-	fl_norm = normalize_image(fl_img)
-
-	t1_comb = np.hstack([t1_norm, np.fliplr(t1_norm)])
-	t1 = np.rot90(np.rot90(np.rot90(t1_comb)))
-
-	fl_comb = np.hstack([fl_norm, np.fliplr(fl_norm)])
-	fl = np.rot90(np.rot90(np.rot90(fl_comb)))
-
-	# apply cmap
-	t1 = t1_cmap(t1)[:,:,0]
-	fl = fl_cmap(fl)[:,:,0]
+	orig_lfb = Image.open(os.path.join(path_patient, c +'_LFB_comparabletoMRIresolution_cleaned.tif').replace("\\","/")).convert('L')
+		
+	wmh_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_WMH.tiff').replace("\\","/")).convert('L')
+	nawm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_NAWM.tiff').replace("\\","/")).convert('L')
+	gm_lbl = Image.open(os.path.join(path_patient, 'Data_Complete_'+ c +'_GM.tiff').replace("\\","/")).convert('L')
 	
-	# t1, fl = add_padding(t1, fl, 27, 24, 23, 22)
+	# Rescale image
+	t1_rescaled = np.array(Image.fromarray(t1_img).resize((200,200), resample=Image.Resampling.BICUBIC))
+	fl_rescaled = np.array(Image.fromarray(fl_img).resize((200,200), resample=Image.Resampling.BICUBIC))
+	orig_lfb = np.array(orig_lfb.resize((200,200), resample=Image.Resampling.BICUBIC))
+	wmh_lbl_rescaled = np.array(wmh_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
+	nawm_lbl_rescaled = np.array(nawm_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
+	gm_lbl_rescaled = np.array(gm_lbl.resize((200,200), resample=Image.Resampling.BICUBIC))
 
-	# plot_pm_data(t1, fl)
+	# Normalize to 0-1
+	t1_norm = normalize_image(t1_rescaled)
+	fl_norm = normalize_image(fl_rescaled)
+	orig_lfb = normalize_image(orig_lfb)
+	orig_lfb = np.where(orig_lfb == 1, 0, orig_lfb)
+	wmh_lbl_norm = normalize_image(wmh_lbl_rescaled)
+	nawm_lbl_norm = normalize_image(nawm_lbl_rescaled)
+	gm_lbl_norm = normalize_image(gm_lbl_rescaled)
 	
-	return t1, fl
+	# Threshold label to 0 or 1
+	wmh_lbl_norm = np.where(np.array(wmh_lbl_norm) > 0.1, 1., 0.)
+	nawm_lbl_norm = np.where(np.array(nawm_lbl_norm) > 0.1, 1., 0.)
+	gm_lbl_norm = np.where(np.array(gm_lbl_norm) > 0.1, 1., 0.)
+
+	return t1_norm, fl_norm, orig_lfb, wmh_lbl_norm, nawm_lbl_norm, gm_lbl_norm
 
 
-def do_pm_mri_fsl(path_patient):
-	wsl = 'wsl ~ -e sh -c'
-	fsl = '/usr/local/fsl/bin/'
-	mnt = '/mnt/e/Matthijs/postmortem_MRI/'
-	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
+def preprocess_pm_inference(cases):
+    # Make train and test datasets
+	input_img = []
 
-	t1 = os.path.join(path_patient, 't1.nii.gz').replace("\\","/")
-	fl = os.path.join(path_patient, 'fl.nii.gz').replace("\\","/")
+	# Preprocess training cases
+	for case in tqdm(cases):
+		path_patient = os.path.join(parameters.path_pm_wmh_data_new, case).replace("\\","/")
+		print(path_patient)
+		t1 = nib.load(os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/"))
+		fl = nib.load(os.path.join(path_patient, 'fl.nii.gz').replace("\\","/"))
 
-	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
-	t1_2_flair_mat = os.path.join(path_patient, 't1_2_flair_mat.mat').replace("\\","/")
+		t1_img = t1.get_fdata()
+		fl_img = fl.get_fdata()
 
-	commands = list()
+		t1_rescaled = np.array(Image.fromarray(t1_img).resize((200,200), resample=Image.Resampling.BICUBIC))
+		fl_rescaled = np.array(Image.fromarray(fl_img).resize((200,200), resample=Image.Resampling.BICUBIC))
 
-	# commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -2D -dof 12  -interp trilinear"', 'T1 to FLAIR space (FLIRT)'])
-	commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -2D -schedule /usr/local/fsl/etc/flirtsch/sch2D_6dof', 'T1 to FLAIR space (FLIRT)'])
-	# commands.append([f'{start}fnirt -v --in={mnt}{t1_2_flair} --ref={mnt}{fl} --iout={mnt}{fnirted} --warpres=10,10,0"', '5/8 Map t1_2_flair to MNI (FNIRT)'])
+		t1_norm = normalize_image(t1_rescaled)
+		fl_norm = normalize_image(fl_rescaled)
+		
+		input_img.append(np.dstack((t1_norm, fl_norm)))
+		
+	# Convert lists to numpy arrays
+	input_img = np.array(input_img)
 
-	for command,description in commands:
-		# print(f'   --- {description} ---')
-		os.system(command)
+	return input_img
 
 
-def preprocess_pm_wmh(c, t1_cmap, fl_cmap, data_path):
+def preprocess_pm_wmh(c, data_path):
 	patient_path = os.path.join(data_path, c).replace("\\","/")
-
-	t1 = None
-	fl = None
 	
 	for filename in os.listdir(patient_path):
 		f = os.path.join(patient_path, filename).replace("\\","/")
 		
-		if 'T1' in filename:
+		if 'T1' in filename and 'RAW' not in filename:
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			img = img.resize((218,182), resample=Image.Resampling.NEAREST)
+			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
 
-		if 'FL' in filename:
+		elif 'FL' in filename and 'RAW' not in filename:
 			img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
-			img = img.resize((218,182), resample=Image.Resampling.NEAREST)
+			img = img.resize((200,200), resample=Image.Resampling.NEAREST)
 			img = np.asarray(img)
 			nii_img = nib.Nifti1Image(img, affine=np.eye(4))
 			nib.save(nii_img, os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
+
+		# elif 'LFB_comparabletoMRIresolution_8bit_cleaned' in filename:
+		# 	img = Image.open(os.path.join(patient_path, f).replace("\\","/")).convert('L')
+		# 	# img = img.resize((200,200), resample=Image.Resampling.BICUBIC)
+		# 	img = np.asarray(img)
+		# 	img = np.where(img ==255, 0, img)
+		# 	nii_img = nib.Nifti1Image(img, affine=np.eye(4))
+		# 	nib.save(nii_img, os.path.join(patient_path, 'lfb.nii.gz').replace("\\","/"))
 
 	do_pm_wmh_fsl(c)
-
-	# Path --> nifti image
-	# t1 = nib.load(os.path.join(patient_path, 't1.nii.gz').replace("\\","/"))
-	fl = nib.load(os.path.join(patient_path, 'fl.nii.gz').replace("\\","/"))
-	t1 = nib.load(os.path.join(patient_path, 't1_2_flair.nii.gz').replace("\\","/"))
-	
-	# Nifti --> np array
-	t1_img = t1.get_fdata()
-	fl_img = fl.get_fdata()
-
-	t1_norm = normalize_image(t1_img)
-	fl_norm = normalize_image(fl_img)
-
-	# t1_comb = np.hstack([t1_norm, np.fliplr(t1_norm)])
-	# t1 = np.rot90(np.rot90(np.rot90(t1_comb)))
-
-	# fl_comb = np.hstack([fl_norm, np.fliplr(fl_norm)])
-	# fl = np.rot90(np.rot90(np.rot90(fl_comb)))
-
-	# apply cmap
-	t1 = t1_cmap(t1_norm)[:,:,0]
-	fl = fl_cmap(fl_norm)[:,:,0]
-
-	# plot_pm_data(t1, fl)
-	
-	return t1, fl
-
 
 def do_pm_wmh_fsl(path_patient):
 	wsl = 'wsl ~ -e sh -c'
 	fsl = '/usr/local/fsl/bin/'
-	mnt = '/mnt/e/Matthijs/postmortem_WMH/'
+	# mnt = '/mnt/e/Matthijs/postmortem_WMH/'
+	mnt = '/mnt/d/Gemma/C338C_MRI/'
 	start = f'{wsl} "export FSLDIR=/usr/local/fsl; . ${{FSLDIR}}/etc/fslconf/fsl.sh; {fsl}'
 
 	t1 = os.path.join(path_patient, 't1.nii.gz').replace("\\","/")
 	fl = os.path.join(path_patient, 'fl.nii.gz').replace("\\","/")
+	lfb = os.path.join(path_patient, 'lfb.nii.gz').replace("\\","/")
 
 	t1_2_flair = os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/")
 	t1_2_flair_mat = os.path.join(path_patient, 't1_2_flair_mat.mat').replace("\\","/")
 
+	lfb_2_flair = os.path.join(path_patient, 'lfb_2_flair.nii.gz').replace("\\","/")
+	lfb_2_flair_mat = os.path.join(path_patient, 'lfb_2_flair.mat').replace("\\","/")
+
 	commands = list()
 
-	# commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -2D -dof 12  -interp trilinear"', 'T1 to FLAIR space (FLIRT)'])
 	commands.append([f'{start}flirt -in {mnt}{t1} -ref {mnt}{fl} -out {mnt}{t1_2_flair} -omat {mnt}{t1_2_flair_mat} -2D -schedule /usr/local/fsl/etc/flirtsch/sch2D_6dof', 'T1 to FLAIR space (FLIRT)'])
-	# commands.append([f'{start}fnirt -v --in={mnt}{t1_2_flair} --ref={mnt}{fl} --iout={mnt}{fnirted} --warpres=10,10,0"', '5/8 Map t1_2_flair to MNI (FNIRT)'])
+	# commands.append([f'{start}flirt -in {mnt}{lfb} -ref {mnt}{fl} -out {mnt}{lfb_2_flair} -omat {mnt}{lfb_2_flair_mat} -bins 256 -cost corratio -searchrx -90 90 -searchry -90 90 -searchrz -90 90 -2D -dof 12  -interp trilinear', 'LFB to FLAIR space (FLIRT)'])
 
 	for command,description in commands:
-		# print(f'   --- {description} ---')
+		print(description)
 		os.system(command)

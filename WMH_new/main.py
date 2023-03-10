@@ -5,6 +5,9 @@ os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import absl.logging
 absl.logging.set_verbosity(absl.logging.ERROR)
 
+import tensorflow as tf
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+
 import datetime
 import numpy as np
 from tqdm import tqdm
@@ -16,7 +19,7 @@ from plot import *
 from model import *
 from parameters import *
 from dataloader import load_data
-from preprocess import preprocess_data
+from preprocess import preprocess_in_vivo_data
 
 if __name__ == '__main__':
 
@@ -28,7 +31,7 @@ if __name__ == '__main__':
         train_cases, test_cases = load_data()
 
         print('--> Preprocessing training and test cases')
-        train_img, train_lbl, test_img, test_lbl = preprocess_data(train_cases, test_cases)
+        train_img, train_lbl, test_img, test_lbl = preprocess_in_vivo_data(train_cases, test_cases)
         
         print('--> Saving datasets')
         save_datasets(train_img, train_lbl, test_img, test_lbl)     
@@ -49,7 +52,7 @@ if __name__ == '__main__':
     for ensemble in range(training_ensemble):
         if train:
             # Load train datasets
-            print(f'--> Loading and shuffling datasets for training model {ensemble+2}')
+            print(f'--> Loading and shuffling datasets for training model {ensemble}')
             train_img, train_lbl = shuffle(np.load(path_train_img), np.load(path_train_lbl))
             
             # Prepare training data (generator)
@@ -62,20 +65,20 @@ if __name__ == '__main__':
             model = build_unet(unet_input_shape)
 
             # Create callbacks
-            checkpoint_filepath = os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble+2)).replace("\\","/")
+            checkpoint_filepath = os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/")
             tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(checkpoint_filepath, "./logs", datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
             model_checkpoint = ModelCheckpoint(filepath=checkpoint_filepath, save_weights_only=False, monitor='val_dice_coef', mode='max', save_best_only=True, verbose=1)
 
             # Train U-net
-            print(f'--> Training model {ensemble+2}')
+            print(f'--> Training model {ensemble}')
             model_history = model.fit(train_generator, validation_data=valid_generator, epochs=training_epochs, callbacks=[tensorboard_callback, model_checkpoint])
             
             # Plot training and save plot
-            plot_training(model_history, ensemble+2)
+            plot_training(model_history, ensemble)
 
             # Save model and parameters
-            model.save(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble+2)).replace("\\","/"))
-            print('--> Saved model, training graph and parameters to', os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble+2)).replace("\\","/"))
+            model.save(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
+            print('--> Saved model, training graph and parameters to', os.path.join(parameters.path_model_checkpoint, parameters.unet_version, str(ensemble)).replace("\\","/"))
             with open('WMH_new/parameters.py', 'r') as f:
                 txt = f.read()
                 with open(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, "parameters.py").replace("\\","/"), 'w') as f:

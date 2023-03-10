@@ -1,4 +1,0 @@
-before removing bad cases: {'DSC': 0.47637427184466025, 'AVD': nan, 'Recall': 0.4166402912621361, 'F1': 0.4897415048543656}
-after removing bad cases (t=0.35): {'DSC': 0.5507477919528944, 'AVD': inf, 'Recall': 0.5327814033366033, 'F1': 0.5576256133464139}
-after removing bad cases (t=0.5): {'DSC': 0.5507195481335924, 'AVD': inf, 'Recall': 0.5302204076620818, 'F1': 0.557323059921411}
-after removing bad cases (t=0.35) and only if label present: {'DSC': 0.5685324806888686, 'AVD': 17923668687.452885, 'Recall': 0.5176945675572991, 'F1': 0.575631758895779}

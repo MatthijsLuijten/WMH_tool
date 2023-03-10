@@ -2,27 +2,21 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import parameters
-import utils
 from matplotlib.colors import ListedColormap
-import matplotlib.patches as mpatches
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def plot_training(model_history, number):
     # Plot the training and validation accuracy and loss at each epoch
     # print(model_history.history)
-    if 'multi' not in parameters.unet_version:
-        metric = model_history.history['dice_coef']
-        val_metric = model_history.history['val_dice_coef']
-    else:
-        metric = model_history.history['dice_coef_multilabel']
-        val_metric = model_history.history['val_dice_coef_multilabel']
+    metric = model_history.history['dice_coef_multilabel']
+    val_metric = model_history.history['val_dice_coef_multilabel']
     plt.figure()
-    plt.plot(model_history.epoch, metric, label=f'Training {parameters.training_loss[1]}')
-    plt.plot(model_history.epoch, val_metric, label=f'Validation {parameters.training_loss[1]}')
-    plt.title(f'Training and validation {str(parameters.training_loss[1])} #{number}')
+    plt.plot(model_history.epoch, metric, label=f'Training Dice Coefficient')
+    plt.plot(model_history.epoch, val_metric, label=f'Validation Dice Coefficient')
+    plt.title(f'Training and validation Dice Coefficient #{number}')
     plt.xlabel('Epoch')
-    plt.ylabel(parameters.training_loss[1])
+    plt.ylabel('Dice Coefficient')
     plt.legend()
 
     # Save plot
@@ -78,11 +72,6 @@ def plot_orig_and_lbl(t1, fl, label):
     cbar = fig.colorbar(im, ax=ax, ticks=[0, 1, 2, 3])
     cbar.ax.set_yticklabels(['Background', 'WMH', 'NAWM', 'GM'])
 
-    # Save plot
-    # if not os.path.exists(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions').replace("\\","/")):
-    #         os.makedirs(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions').replace("\\","/"))
-    # plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions', str(i)).replace("\\","/"))
-
     plt.show()
 
 
@@ -112,32 +101,79 @@ def plot_orig_and_lbls(img, wmh, nawm, gm):
     plt.show()
 
 
-def plot_lbl_and_pred(t1, fl, label, pred, i=None):
+def plot_lbl_and_pred(fl, label, pred, i=None):
+    cols = ['Original FLAIR', 'WMH label', 'WMH prediction']
+    rows = ['Slice 70','Slice 80','Slice 90','Slice 100','Slice 110']
     # Plot t1, fl, lbl and prediction
-    fig, ax = plt.subplots(1,2, figsize=(10, 5))
-    # fig.suptitle(c)
-    ax[0].imshow(np.rot90(t1), cmap='gray')
-    ax[0].set_title('Original T1')
-    ax[0].axis('off')
+    fig, ax = plt.subplots(5,3)
+    for axes, col in zip(ax[0], cols):
+        axes.set_title(col)
 
-    ax[1].imshow(np.rot90(fl), cmap='gray')
-    ax[1].set_title('Original FL')
-    ax[1].axis('off')
+    for axes, row in zip(ax[:,0], rows):
+        axes.set_ylabel(row, rotation=90, size='large')
 
-    ax[0].imshow(np.rot90(label), cmap='hot', alpha=0.5)
-    ax[0].set_title('WMH label')
-    ax[0].axis('off')
+    fl1, lbl1, pred1 = fl[:,:,70], label[:,:,70], pred[:,:,70]
+    fl2, lbl2, pred2 = fl[:,:,80], label[:,:,80], pred[:,:,80]
+    fl3, lbl3, pred3 = fl[:,:,90], label[:,:,90], pred[:,:,90]
+    fl4, lbl4, pred4 = fl[:,:,100], label[:,:,100], pred[:,:,100]
+    fl5, lbl5, pred5 = fl[:,:,110], label[:,:,110], pred[:,:,110]
+    
+    colors = [(0, 0, 0), (1, 0, 0)] # first color is black, last is red
+    cm = LinearSegmentedColormap.from_list(
+            "Custom", colors, N=20)
 
-    ax[1].imshow(np.rot90(pred), cmap='hot', alpha=0.5)
-    ax[1].set_title('WMH pred')
-    ax[1].axis('off')
+    # First row
+    ax[0, 0].imshow(np.rot90(fl1), cmap='gray')
 
-    # Save plot
-    # if not os.path.exists(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions_where').replace("\\","/")):
-    #         os.makedirs(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions_where').replace("\\","/"))
-    # plt.savefig(os.path.join(parameters.path_model_checkpoint, parameters.unet_version, 'predictions_where', str(i)).replace("\\","/"))
+    trans_label = np.where(lbl1 == 0, 0, 0.8)[:,:]
+    ax[0, 1].imshow(np.rot90(lbl1), cmap=cm)#, alpha=np.rot90(trans_label))
+    ax[0, 1].set_facecolor('black')
+        
+    trans_pred = np.where(pred1 == 0, 0, 0.8)[:,:,0]
+    ax[0, 2].imshow(np.rot90(pred1), cmap=cm)#, alpha=np.rot90(trans_pred))
 
-    # plt.show()
+    # Second row
+    ax[1, 0].imshow(np.rot90(fl2), cmap='gray')
+
+    trans_label = np.where(lbl2 == 0, 0, 0.8)[:,:]
+    ax[1, 1].imshow(np.rot90(lbl2), cmap='Reds', alpha=np.rot90(trans_label))
+        
+    trans_pred = np.where(pred2 == 0, 0, 0.8)[:,:,0]
+    ax[1, 2].imshow(np.rot90(pred2), cmap='Reds', alpha=np.rot90(trans_pred))
+
+    # Third row
+    ax[2, 0].imshow(np.rot90(fl3), cmap='gray')
+
+    trans_label = np.where(lbl3 == 0, 0, 0.8)[:,:]
+    ax[2, 1].imshow(np.rot90(lbl3), cmap='Reds', alpha=np.rot90(trans_label))
+        
+    trans_pred = np.where(pred3 == 0, 0, 0.8)[:,:,0]
+    ax[2, 2].imshow(np.rot90(pred3), cmap='Reds', alpha=np.rot90(trans_pred))
+
+    # Fourth row
+    ax[3, 0].imshow(np.rot90(fl4), cmap='gray')
+
+    trans_label = np.where(lbl4 == 0, 0, 0.8)[:,:]
+    ax[3, 1].imshow(np.rot90(lbl4), cmap='Reds', alpha=np.rot90(trans_label))
+        
+    trans_pred = np.where(pred4 == 0, 0, 0.8)[:,:,0]
+    ax[3, 2].imshow(np.rot90(pred4), cmap='Reds', alpha=np.rot90(trans_pred))
+
+    # Fifth row
+    ax[4, 0].imshow(np.rot90(fl5), cmap='gray')
+
+    trans_label = np.where(lbl5 == 0, 0, 0.8)[:,:]
+    ax[4, 1].imshow(np.rot90(lbl5), cmap='Reds', alpha=np.rot90(trans_label))
+        
+    trans_pred = np.where(pred5 == 0, 0, 0.8)[:,:,0]
+    ax[4, 2].imshow(np.rot90(pred5), cmap='Reds', alpha=np.rot90(trans_pred))
+
+    for i in range(5):
+        for j in range(3):
+            ax[i, j].axis('off')
+    fig.tight_layout()
+
+    plt.show()
 
 def plot_augmented_data(t1, fl, label, aug_t1, aug_fl, aug_label):
     # Plot t1, fl, lbl and prediction
@@ -169,18 +205,16 @@ def plot_augmented_data(t1, fl, label, aug_t1, aug_fl, aug_label):
 
     plt.show()
 
-def plot_prediction(fl_orig, label, wmh, nawm, gm, i=''):
+def plot_prediction(fl_orig, label, wmh, nawm, gm, lfb, i=''):
     # Plot t1, fl, lbl and prediction
     fig, ax = plt.subplots(1,3, figsize=(15, 5))
-    # ax[0].imshow(np.rot90(t1_orig), cmap='gray')
-    # ax[0].set_title('Original T1')
-    # ax[0].axis('off')
 
     ax[0].imshow(np.rot90(fl_orig), cmap='gray')
     ax[0].set_title('Original FL')
     ax[0].axis('off')
 
     ax[1].imshow(np.rot90(fl_orig), cmap='gray')
+    ax[1].imshow(np.rot90(lfb), cmap='hot', alpha=0.5)
 
     ax[2].imshow(np.rot90(fl_orig), cmap='gray')
 
@@ -190,53 +224,91 @@ def plot_prediction(fl_orig, label, wmh, nawm, gm, i=''):
     # Create a custom colormap
     cmap = ListedColormap(colors)
 
-    trans_lbl = np.where(label == 0, 0, 0.5)[:,:,0]
-    label_im = ax[1].imshow(np.rot90(label), alpha=np.rot90(trans_lbl), cmap=cmap)
-    ax[1].set_title('WMH label')
-    ax[1].axis('off')
-
-    # divider = make_axes_locatable(ax[1])
-    # cax = divider.append_axes("right", size="5%", pad=0.05)
-
-    # Add the colorbar to the new axes
-    # cbar = fig.colorbar(label_im, ax=ax[1], ticks=[0, 1, 2, 3])
-    # cbar.ax.set_yticklabels(['Background', 'GM', 'NAWM', 'WMH'])
-    # cbar = plt.colorbar(label_im, cax=cax)
+    # trans_lbl = np.where(label == 0, 0, 0.5)[:,:,0]
+    # label_im = ax[1].imshow(np.rot90(label), alpha=np.rot90(trans_lbl), cmap=cmap)
+    # ax[1].set_title('WMH label')
+    # ax[1].axis('off')
    
-    
-    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
-    im_wmh = ax[2].imshow(np.rot90(wmh), alpha=np.rot90(trans_wmh), cmap='Reds')
-    ax[2].set_title('Prediction')
-    ax[2].axis('off')
-
     trans_nawm = np.where(nawm == 0, 0, 0.8)[:,:,0]
     ax[2].imshow(np.rot90(nawm), alpha=np.rot90(trans_nawm), cmap='Blues')
 
     trans_gm = np.where(gm == 0, 0, 0.8)[:,:,0]
     ax[2].imshow(np.rot90(gm), alpha=np.rot90(trans_gm), cmap='Greens')
 
-    # Save plot
-    if not os.path.exists(os.path.join(parameters.path_pm_predictions, 'progression_v2').replace("\\","/")):
-            os.makedirs(os.path.join(parameters.path_pm_predictions, 'progression_v2').replace("\\","/"))
-    plt.savefig(os.path.join(parameters.path_pm_predictions, 'progression_v2', str(i)).replace("\\","/"))
+    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
+    im_wmh = ax[2].imshow(np.rot90(wmh), alpha=np.rot90(trans_wmh), cmap='Reds')
+    ax[2].set_title('Prediction')
+    ax[2].axis('off')
 
+    # Save plot
+    # if not os.path.exists(os.path.join(parameters.path_pm_predictions, 'progression_v4').replace("\\","/")):
+    #         os.makedirs(os.path.join(parameters.path_pm_predictions, 'progression_v4').replace("\\","/"))
+    # plt.savefig(os.path.join(parameters.path_pm_predictions, 'progression_v4', str(i)).replace("\\","/"))
+    plt.title(str(i))
+    plt.show()
+
+
+def plot_prediction_inference(fl_orig, wmh, nawm, gm, i, cases):
+    # Plot prediction
+    fig, ax = plt.subplots()
+   
+    trans_nawm = np.where(nawm == 0, 0, 0.8)[:,:,0]
+    ax.imshow(nawm, alpha=trans_nawm, cmap='Blues')
+
+    trans_gm = np.where(gm == 0, 0, 0.8)[:,:,0]
+    ax.imshow(gm, alpha=trans_gm, cmap='Greens')
+
+    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
+    im_wmh = ax.imshow(wmh, alpha=trans_wmh, cmap='Reds')
+    ax.axis('off')
+    fig.tight_layout()
+    # Save plot
+    if not os.path.exists(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i]).replace("\\","/")):
+            os.makedirs(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i]).replace("\\","/"))
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_total').replace("\\","/"))
+
+    # Plot prediction
+    fig, ax = plt.subplots()
+    ax.imshow(fl_orig, cmap='gray')
+    trans_nawm = np.where(nawm == 0, 0, 0.8)[:,:,0]
+    ax.imshow(nawm, alpha=trans_nawm, cmap='Blues')
+
+    trans_gm = np.where(gm == 0, 0, 0.8)[:,:,0]
+    ax.imshow(gm, alpha=trans_gm, cmap='Greens')
+
+    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
+    im_wmh = ax.imshow(wmh, alpha=trans_wmh, cmap='Reds')
+    ax.axis('off')
+    fig.tight_layout()
+    # Save plot
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_total_with_flair').replace("\\","/"))
+
+
+    # Save wmh, nawm, and gm images separately
+    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_wmh.png').replace("\\","/"), wmh[:,:,0], cmap='Reds')
+    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_nawm.png').replace("\\","/"), nawm[:,:,0], cmap='Blues')
+    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_gm.png').replace("\\","/"), gm[:,:,0], cmap='Greens')
+
+    plt.close()
     # plt.show()
 
 
-def plot_pm_data(t1, fl):
+def plot_pm_data(t1, fl, lfb2, lfb):
     # Plot t1, fl, lbl and prediction
     fig, ax = plt.subplots(1,2, figsize=(10, 5))
-    ax[0].imshow(np.rot90(t1), cmap='gray')
+    ax[0].imshow(np.rot90(fl), cmap='gray')
     ax[0].set_title('T1')
     ax[0].axis('off')
-
     ax[1].imshow(np.rot90(fl), cmap='gray')
-    ax[1].set_title('FLAIR')
+    ax[1].set_title('T1')
     ax[1].axis('off')
 
-    # ax[0].imshow(np.rot90(fl), cmap='Blues', alpha=0.5)
-    # ax[0].set_title('FLAIR')
-    # ax[0].axis('off')
+    ax[0].imshow(np.rot90(lfb), cmap='hot', alpha=0.5)
+    ax[0].set_title('FLAIR')
+    ax[0].axis('off')
+    ax[1].imshow(np.rot90(lfb), cmap='hot', alpha=0.5)
+    ax[1].set_title('FLAIR')
+    ax[1].axis('off')
 
     plt.show()
 

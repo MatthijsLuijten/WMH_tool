@@ -1,10 +1,11 @@
 import numpy as np
 from sklearn.cluster import KMeans
+from scipy.stats import spearmanr
 import matplotlib.pyplot as plt
 import os
 os.environ["OMP_NUM_THREADS"] = '1'
 
-def run(test_img, preds):
+def run(test_img, preds, lfb):
     # Use FL and T1 as inclusion mask
     preds = inclusion_mask(test_img, preds)
     
@@ -15,7 +16,10 @@ def run(test_img, preds):
     wmh_zones = create_transition_zones(wmh_mask)
     nawm_zones = create_transition_zones(nawm_mask)
 
-    return preds, wmh_zones, nawm_zones, gm_mask
+    # Perform correlation analysis between zones and LFB
+    visualize_correlation(wmh_zones, nawm_zones, lfb)
+
+    return preds, wmh_zones, nawm_zones, gm_mask, lfb
 
 
 def inclusion_mask(test_img, preds):
@@ -31,9 +35,9 @@ def inclusion_mask(test_img, preds):
 
 def create_masks(test_img, preds):
     test_img2 = np.expand_dims(test_img, axis=-1)
-    wmh_mask = np.where(preds == 1, test_img2[:,:,:,1], 0)
+    wmh_mask = np.where(preds == 3, test_img2[:,:,:,1], 0)
     nawm_mask = np.where(preds == 2, test_img2[:,:,:,1], 0)
-    gm_mask = np.where(preds == 3, 1, 0)
+    gm_mask = np.where(preds == 1, 1, 0)
     return wmh_mask, nawm_mask, gm_mask
 
 
@@ -49,9 +53,12 @@ def create_transition_zones(mask):
         # get values of non-zero pixels
         nonzero_vals = region[nonzero_idx]
 
-        # cluster the non-zero pixels into 3 classes using KMeans
-        kmeans = KMeans(n_clusters=3)
-        labels = kmeans.fit_predict(nonzero_vals.reshape(-1,1)) + 1 # add 1 to the labels to avoid using 0 as a cluster label
+        if len(nonzero_vals) == 0:
+            labels = np.array([])
+        else:
+            # cluster the non-zero pixels into 3 classes using KMeans
+            kmeans = KMeans(n_clusters=3)
+            labels = kmeans.fit_predict(nonzero_vals.reshape(-1,1)) + 1 # add 1 to the labels to avoid using 0 as a cluster label
 
         # calculate mean intensity for each cluster
         mean_intensities = []
@@ -78,3 +85,122 @@ def create_transition_zones(mask):
         transition_zones.append(labels_2d.reshape(*region.shape, 1))
                 
     return transition_zones
+
+def visualize_correlation(wmh_zone, nawm_zone, lfbs):
+    all_zone_values = []
+    all_lfb_values = []
+
+    all_wmh_zone_values = []
+    all_wmh_lfb_values = []
+
+    all_nawm_zone_values = []
+    all_nawm_lfb_values = []
+    
+    for i, (zone, lfb) in enumerate(zip(wmh_zone, lfbs)):
+        zone = zone[:, :, 0]
+        
+        # check if zone consists only of 0 values
+        if np.count_nonzero(zone) == 0:
+            continue
+        
+        non_zero_indices = np.nonzero(zone)
+        zone_values = zone[non_zero_indices]
+        lfb_values = lfb[non_zero_indices]
+        
+        non_zero_lfb_indices = np.nonzero(lfb_values)
+        lfb_values = lfb_values[non_zero_lfb_indices]
+        zone_values = zone_values[non_zero_lfb_indices]
+        
+        all_zone_values.append(zone_values)
+        all_lfb_values.append(lfb_values)
+        all_wmh_zone_values.append(zone_values)
+        all_wmh_lfb_values.append(lfb_values)
+    
+    all_wmh_zone_values = np.concatenate(all_wmh_zone_values)
+    all_wmh_lfb_values = np.concatenate(all_wmh_lfb_values)
+    r, p = spearmanr(all_wmh_zone_values, all_wmh_lfb_values)
+    print("Pearson correlation coefficient for WMH: ", r)
+    print("p-value for WMH: ", p)
+
+    # Plot boxplots for all zones together
+    plt.figure(figsize=(4, 4))
+    for zone_value in [1, 2, 3]:
+        indices = np.where(all_wmh_zone_values == zone_value)
+        zone_data = all_wmh_lfb_values[indices]
+        plt.boxplot(zone_data, positions=[zone_value], showfliers=False)
+
+    plt.xlabel('WMH Severity')
+    plt.ylabel('LFB Pixel Intensity (meyelin loss)')
+    plt.title('LFB Intensity for each Zone')
+    plt.xticks([1, 2, 3], ['Mild', 'Moderate', 'Severe'])
+    plt.show()
+    
+    for i, (zone, lfb) in enumerate(zip(nawm_zone, lfbs)):
+        zone = zone[:, :, 0]
+        
+        # check if zone consists only of 0 values
+        if np.count_nonzero(zone) == 0:
+            continue
+        
+        non_zero_indices = np.nonzero(zone)
+        zone_values = zone[non_zero_indices]
+        lfb_values = lfb[non_zero_indices]
+        
+        non_zero_lfb_indices = np.nonzero(lfb_values)
+        lfb_values = lfb_values[non_zero_lfb_indices]
+        zone_values = zone_values[non_zero_lfb_indices]
+        
+        all_zone_values.append(zone_values)
+        all_lfb_values.append(lfb_values)
+        all_nawm_zone_values.append(zone_values)
+        all_nawm_lfb_values.append(lfb_values)
+        
+    all_nawm_zone_values = np.concatenate(all_nawm_zone_values)
+    all_nawm_lfb_values = np.concatenate(all_nawm_lfb_values)
+    r, p = spearmanr(all_nawm_zone_values, all_nawm_lfb_values)
+    print("Pearson correlation coefficient for NAWM: ", r)
+    print("p-value for NAWM: ", p)
+
+    # Plot boxplots for all zones together
+    plt.figure(figsize=(4, 4))
+    for zone_value in [1, 2, 3]:
+        indices = np.where(all_nawm_zone_values == zone_value)
+        zone_data = all_nawm_lfb_values[indices]
+        plt.boxplot(zone_data, positions=[zone_value], showfliers=False)
+
+    plt.xlabel('NAWM Severity')
+    plt.ylabel('LFB Pixel Intensity (meyelin loss)')
+    plt.title('LFB Intensity for each Zone')
+    plt.xticks([1, 2, 3], ['Mild', 'Moderate', 'Severe'])
+    plt.show()
+    
+    all_zone_values_combined = all_wmh_zone_values.tolist() + all_nawm_zone_values.tolist()
+    all_lfb_values_combined = all_wmh_lfb_values.tolist() + all_nawm_lfb_values.tolist()
+
+    # Calculate Pearson correlation coefficient for combined data
+    r, p = spearmanr(all_zone_values_combined, all_lfb_values_combined)
+    print("Pearson correlation coefficient for combined WMH and NAWM data: ", r)
+    print("p-value for combined WMH and NAWM data: ", p)
+
+    # Plot boxplots for WMH and NAWM together
+    plt.figure(figsize=(6, 4))
+    data = [all_wmh_lfb_values, all_nawm_lfb_values]
+    labels = ['WMH', 'NAWM']
+    plt.boxplot(data, labels=labels, showfliers=False)
+    plt.ylabel('LFB Pixel Intensity (meyelin loss)')
+    plt.title('LFB Intensity for WMH and NAWM')
+    plt.show()
+
+
+def run_inference(test_img, preds):
+    # Use FL and T1 as inclusion mask
+    preds = inclusion_mask(test_img, preds)
+    
+    # Create masks for regions
+    wmh_mask, nawm_mask, gm_mask = create_masks(test_img, preds)
+    
+    # Create transition zones
+    wmh_zones = create_transition_zones(wmh_mask)
+    nawm_zones = create_transition_zones(nawm_mask)
+
+    return preds, wmh_zones, nawm_zones, gm_mask

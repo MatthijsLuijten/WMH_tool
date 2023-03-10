@@ -8,7 +8,7 @@ def load_data():
 
 
 def load_all_data():
-    return load_cases(parameters.path_bad_cases)
+    return load_cases(parameters.path_good_cases)
 
 
 def load_cases(file_path):
@@ -17,5 +17,5 @@ def load_cases(file_path):
 
 
 def load_pm_data(file_path):
-    # return load_cases(file_path)
-    return train_test_split(load_cases(file_path), test_size=0.2, shuffle=True)
+    return load_cases(file_path)
+    # return train_test_split(load_cases(file_path), test_size=0.2, shuffle=True)
