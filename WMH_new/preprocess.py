@@ -179,7 +179,7 @@ def preprocess_pm_data_lfb(cases):
 	train_lbl_gm = np.array(train_lbl_gm)
 	lfb_img = np.array(lfb_img)
 
-	return input_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, lfb_img
+	return input_img, lfb_img
 
 
 def preprocess_pm(c):
@@ -268,7 +268,7 @@ def preprocess_pm_inference(cases):
 
 	# Preprocess training cases
 	for case in tqdm(cases):
-		path_patient = os.path.join(parameters.path_pm_wmh_data_new, case).replace("\\","/")
+		path_patient = os.path.join(parameters.path_pm_wmh_data, case).replace("\\","/")
 		print(path_patient)
 		t1 = nib.load(os.path.join(path_patient, 't1_2_flair.nii.gz').replace("\\","/"))
 		fl = nib.load(os.path.join(path_patient, 'fl.nii.gz').replace("\\","/"))

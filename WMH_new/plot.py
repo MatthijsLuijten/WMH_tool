@@ -249,46 +249,83 @@ def plot_prediction(fl_orig, label, wmh, nawm, gm, lfb, i=''):
 
 
 def plot_prediction_inference(fl_orig, wmh, nawm, gm, i, cases):
+    wmh = np.where(wmh == 0, 0, np.where(wmh == 1, 5, np.where(wmh == 2, 6, 7)))
+    nawm = np.where(nawm == 0, 0, np.where(nawm == 1, 2, np.where(nawm == 2, 3, 4)))
+    total = wmh+nawm+gm
+
     # Plot prediction
-    fig, ax = plt.subplots()
-   
-    trans_nawm = np.where(nawm == 0, 0, 0.8)[:,:,0]
-    ax.imshow(nawm, alpha=trans_nawm, cmap='Blues')
+    fig, ax = plt.subplots(figsize=(2,2))
 
-    trans_gm = np.where(gm == 0, 0, 0.8)[:,:,0]
-    ax.imshow(gm, alpha=trans_gm, cmap='Greens')
+    # Create a custom colormap
+    colors = plt.cm.jet(np.linspace(0, 1, 256))
+    newcolors = colors[1:,:]
+    cmap = ListedColormap(newcolors)
 
-    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
-    im_wmh = ax.imshow(wmh, alpha=trans_wmh, cmap='Reds')
+    alpha = np.where(total == 0, 0, 1.0)[:,:,0]
+
+    ax.imshow(total, alpha=alpha, cmap=cmap, vmin=1, vmax=7)
     ax.axis('off')
     fig.tight_layout()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+    plt.margins(0,0)
     # Save plot
+    #Change folder where output will be saved! so 'C338C_MRI' to NEW!
     if not os.path.exists(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i]).replace("\\","/")):
             os.makedirs(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i]).replace("\\","/"))
     plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_total').replace("\\","/"))
-
+    plt.close()
     # Plot prediction
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(2,2))
     ax.imshow(fl_orig, cmap='gray')
-    trans_nawm = np.where(nawm == 0, 0, 0.8)[:,:,0]
-    ax.imshow(nawm, alpha=trans_nawm, cmap='Blues')
-
-    trans_gm = np.where(gm == 0, 0, 0.8)[:,:,0]
-    ax.imshow(gm, alpha=trans_gm, cmap='Greens')
-
-    trans_wmh = np.where(wmh == 0, 0, 0.8)[:,:,0]
-    im_wmh = ax.imshow(wmh, alpha=trans_wmh, cmap='Reds')
+    alpha = np.where(total == 0, 0, 0.8)[:,:,0]
+    ax.imshow(total, alpha=alpha, cmap=cmap, vmin=1, vmax=7)
     ax.axis('off')
     fig.tight_layout()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+    plt.margins(0,0)
     # Save plot
     plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_total_with_flair').replace("\\","/"))
+    plt.close()
 
+    # Plot prediction
+    fig, ax = plt.subplots(figsize=(2,2))
+    alpha = np.where(wmh == 0, 0, 1.0)[:,:,0]
+    ax.imshow(wmh, alpha=alpha, cmap=cmap, vmin=1, vmax=7)
+    ax.axis('off')
+    fig.tight_layout()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+    plt.margins(0,0)
+    # Save plot
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_wmh').replace("\\","/"))
+    plt.close()
 
-    # Save wmh, nawm, and gm images separately
-    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_wmh.png').replace("\\","/"), wmh[:,:,0], cmap='Reds')
-    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_nawm.png').replace("\\","/"), nawm[:,:,0], cmap='Blues')
-    plt.imsave(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_gm.png').replace("\\","/"), gm[:,:,0], cmap='Greens')
+    # Plot prediction
+    fig, ax = plt.subplots(figsize=(2,2))
+    alpha = np.where(nawm == 0, 0, 1.0)[:,:,0]
+    ax.imshow(nawm, alpha=alpha, cmap=cmap, vmin=1, vmax=7)
+    ax.axis('off')
+    fig.tight_layout()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+    plt.margins(0,0)
+    # Save plot
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_nawm').replace("\\","/"))
+    plt.close()
 
+    # Plot prediction
+    fig, ax = plt.subplots(figsize=(2,2))
+    alpha = np.where(gm == 0, 0, 1.0)[:,:,0]
+    ax.imshow(gm, alpha=alpha, cmap=cmap, vmin=1, vmax=7)
+    ax.axis('off')
+    fig.tight_layout()
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
+            hspace = 0, wspace = 0)
+    plt.margins(0,0)
+    # Save plot
+    plt.savefig(os.path.join(parameters.path_pm_predictions, 'C338C_MRI', cases[i], cases[i]+'_gm').replace("\\","/"))
     plt.close()
     # plt.show()
 

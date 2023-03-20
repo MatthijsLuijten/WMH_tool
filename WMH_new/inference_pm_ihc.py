@@ -15,7 +15,7 @@ from model import *
 from multi_model import *
 from parameters import *
 from dataloader import load_pm_data
-from preprocess import preprocess_pm_inference
+from preprocess import preprocess_pm_data_lfb
 import postprocess
 
 if __name__ == '__main__':
@@ -28,8 +28,8 @@ if __name__ == '__main__':
         cases = load_pm_data(path_pm_wmh_cases)
 
         print('--> Preprocessing training and test cases')
-        input_img = preprocess_pm_inference(cases)
-        
+        input_img, lfb_img = preprocess_pm_data_lfb(cases)
+
         # print('--> Saving datasets')
         # save_pm_datasets(train_img, train_lbl_wmh, train_lbl_nawm, train_lbl_gm, test_img, test_lbl_wmh, test_lbl_nawm, test_lbl_gm)     
 
@@ -51,7 +51,6 @@ if __name__ == '__main__':
     preds = preds[..., tf.newaxis]
 
     # Postprocess (transition zones and correlation)
-    preds, wmh_zones, nawm_zones, gm_mask = postprocess.run_inference(input_img, preds)
-    for i in range(len(preds)):
-        plot_prediction_inference(input_img[i][:,:,1], wmh_zones[i], nawm_zones[i], gm_mask[i], i, cases)
-
+    preds, wmh_zones, nawm_zones, gm_mask, lfb_img = postprocess.run(input_img, preds, lfb_img, cases)
+    # for i in range(len(preds)):
+    #     plot_prediction(input_img[i][:,:,1], wmh_zones[i], nawm_zones[i], gm_mask[i], lfb_img[i], i)

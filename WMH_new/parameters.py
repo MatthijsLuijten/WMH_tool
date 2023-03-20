@@ -1,12 +1,12 @@
 import utils
 
 ########## U-Net parameters ##########
-unet_version = 'post_mortem_model_3'
+unet_version = 'post_mortem_model_2'
 unet_input_shape = (200,200,2)
-unet_dropout = 0.1
-unet_lr = 2e-3
 
 ########## Training parameters ##########
+unet_dropout = 0.1
+unet_lr = 2e-3
 training_batch_size = 16
 training_epochs = 100
 training_validation_split = 0.2
@@ -57,7 +57,7 @@ path_pm_train_lbl_classes = 'WMH_new/datasets/pm_y_200x200_train_classes.npy'
 path_pm_test_img_classes = 'WMH_new/datasets/pm_x_200x200_test_classes.npy'
 path_pm_test_lbl_classes = 'WMH_new/datasets/pm_y_200x200_test_classes.npy'
 
-########## Paths ##########
+########## in vivo Paths ##########
 path_data_2006 = 'RUNDMC/2006'
 path_data_2011 = 'RUNDMC/2011'
 path_data_2015 = 'RUNDMC/2015'
@@ -76,11 +76,11 @@ path_testcases = 'RUNDMC/2006/test50.txt'
 
 path_model_checkpoint = 'WMH_new/checkpoints'
 
-########## Post Mortem ##########
-path_pm_wmh_cases = 'E:/Matthijs/postmortem_WMH/cases_test_model_3.txt'
+########## Post Mortem paths ##########
+path_pm_wmh_cases = 'E:/Matthijs/postmortem_WMH/cases_lfb.txt'
 path_pm_wmh_data = 'E:/Matthijs/postmortem_WMH'
 path_pm_wmh_dataset = 'WMH_new/datasets/pm_wmh_data_v2.npy'
-
+#change both new and normal! cases & data. 3rd not change
 path_pm_wmh_cases_new = 'D:/Gemma/C338C_MRI/cases.txt'
 path_pm_wmh_data_new = 'D:/Gemma/C338C_MRI'
 path_pm_wmh_dataset_new = 'WMH_new/datasets/pm_wmh_data_v2.npy'

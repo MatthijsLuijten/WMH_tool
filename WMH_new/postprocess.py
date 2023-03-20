@@ -1,23 +1,26 @@
 import numpy as np
 from sklearn.cluster import KMeans
 from scipy.stats import spearmanr
+import csv
 import matplotlib.pyplot as plt
 import os
 os.environ["OMP_NUM_THREADS"] = '1'
+from parameters import *
 
-def run(test_img, preds, lfb):
+def run(mri, preds, lfb, cases):
     # Use FL and T1 as inclusion mask
-    preds = inclusion_mask(test_img, preds)
+    preds = inclusion_mask(mri, preds)
     
     # Create masks for regions
-    wmh_mask, nawm_mask, gm_mask = create_masks(test_img, preds)
+    wmh_mask, nawm_mask, gm_mask = create_masks(mri, preds)
     
     # Create transition zones
     wmh_zones = create_transition_zones(wmh_mask)
     nawm_zones = create_transition_zones(nawm_mask)
 
     # Perform correlation analysis between zones and LFB
-    visualize_correlation(wmh_zones, nawm_zones, lfb)
+    # visualize_correlation(wmh_zones, nawm_zones, gm_mask, lfb, cases)
+    correlation(wmh_zones, nawm_zones, gm_mask, lfb, cases, mri)
 
     return preds, wmh_zones, nawm_zones, gm_mask, lfb
 
@@ -96,6 +99,7 @@ def visualize_correlation(wmh_zone, nawm_zone, lfbs):
     all_nawm_zone_values = []
     all_nawm_lfb_values = []
     
+    # Loop through cases
     for i, (zone, lfb) in enumerate(zip(wmh_zone, lfbs)):
         zone = zone[:, :, 0]
         
@@ -190,6 +194,39 @@ def visualize_correlation(wmh_zone, nawm_zone, lfbs):
     plt.ylabel('LFB Pixel Intensity (meyelin loss)')
     plt.title('LFB Intensity for WMH and NAWM')
     plt.show()
+
+
+def correlation(wmh_zones, nawm_zones, gm_mask, lfbs, cases, mri):
+    # Loop over each case
+    for case_id in range(len(cases)):
+        # Get the corresponding WMH and NAWM zones
+        wmh_zone = wmh_zones[case_id]
+        nawm_zone = nawm_zones[case_id]
+        gm_zone = gm_mask[case_id]
+        lfb_zone = lfbs[case_id]
+        flair = mri[case_id,:,:,1]
+
+        wmh = np.ndarray.flatten(wmh_zone)
+        nawm = np.ndarray.flatten(nawm_zone)
+        gm = np.ndarray.flatten(gm_zone)
+        lfb = np.ndarray.flatten(lfb_zone)
+        flair = np.ndarray.flatten(flair)
+
+        output_file = os.path.join(path_pm_wmh_data, cases[case_id], 'correlation.csv')
+        with open(output_file, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['case_id', 'pixel_num', 'ROI', 'cluster', 'FLAIR', 'LFB'])
+            # Loop over each pixel in the image
+            for i in range(40000):
+                if wmh[i] != 0:
+                    writer.writerow([cases[case_id], i+1, 'WMH', wmh[i], flair[i], lfb[i]])
+                elif nawm[i] != 0:
+                    writer.writerow([cases[case_id], i+1, 'NAWM', nawm[i], flair[i], lfb[i]])
+                elif gm[i] != 0:
+                    writer.writerow([cases[case_id], i+1, 'GM', gm[i], flair[i], lfb[i]])
+                else:
+                    writer.writerow([cases[case_id], i+1, 'Background', 0, flair[i], lfb[i]])
+            
 
 
 def run_inference(test_img, preds):
